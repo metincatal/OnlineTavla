@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>Online Tavla</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<!-- ═══ MENU SCREEN ═══════════════════════════════════════════ -->
+<div id="menu-screen" class="screen">
+  <div class="menu-container">
+    <div class="menu-title">
+      <span class="dice-icon">🎲</span>
+      <h1>Online Tavla</h1>
+      <span class="dice-icon">🎲</span>
+    </div>
+    <div class="menu-buttons">
+      <button id="btn-local" class="menu-btn primary-btn">
+        <span class="btn-icon">👥</span><span>Yerel Oyun (2 Kişi)</span>
+      </button>
+      <button id="btn-ai" class="menu-btn secondary-btn">
+        <span class="btn-icon">🤖</span><span>Bilgisayara Karşı</span>
+      </button>
+      <div id="ai-difficulty-panel" style="display:none;" class="difficulty-panel">
+        <button id="btn-ai-easy"   class="diff-btn easy-btn">Kolay</button>
+        <button id="btn-ai-medium" class="diff-btn medium-btn">Orta</button>
+        <button id="btn-ai-hard"   class="diff-btn hard-btn">Zor</button>
+      </div>
+      <div class="online-section">
+        <button id="btn-create-room" class="menu-btn online-btn">
+          <span class="btn-icon">🌐</span><span>Oda Oluştur</span>
+        </button>
+        <div class="join-row">
+          <input type="text" id="room-id-input" placeholder="Oda Kodu (ABC123)" maxlength="6" autocomplete="off">
+          <button id="btn-join-room" class="join-btn">Katıl</button>
+        </div>
+      </div>
+      <div id="room-code-section" style="display:none;" class="room-code-section">
+        <p>Oda Kodunuz:</p>
+        <div id="room-code-display" class="room-code"></div>
+        <p id="online-status-message" class="online-status"></p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ GAME SCREEN ════════════════════════════════════════════ -->
+<div id="game-screen" class="screen" style="display:none;">
+
+  <!-- TOP HUD -->
+  <div class="game-hud">
+    <div class="player-pill">
+      <div class="pill-dot black-dot"></div>
+      <span class="pill-name">Siyah</span>
+      <span class="pill-stat">Pip <b id="black-pip">167</b></span>
+      <span class="pill-stat">Off <b id="black-off">0</b></span>
+    </div>
+
+    <div id="current-turn" class="turn-badge">Beyaz'ın Sırası</div>
+
+    <div class="mini-btns">
+      <button id="undo-btn"     class="mini-btn" title="Geri Al">↩</button>
+      <button id="resign-btn"   class="mini-btn" title="Teslim Ol">⚑</button>
+      <button id="new-game-btn" class="mini-btn" title="Yeni Oyun">↺</button>
+      <button id="menu-btn"     class="mini-btn" title="Ana Menü">≡</button>
+    </div>
+  </div>
+
+  <!-- BOARD -->
+  <div class="board-wrapper">
+    <svg id="board-svg" xmlns="http://www.w3.org/2000/svg"></svg>
+
+    <!-- Center strip: dice left, action button right -->
+    <div class="board-center-strip">
+      <div id="dice-animation-container" class="board-dice"></div>
+      <div class="board-action-zone">
+        <button id="roll-btn" class="board-action-btn roll-btn-style" disabled>🎲 Zar At</button>
+        <button id="confirm-turn-btn" class="board-action-btn confirm-btn-style" style="display:none">✓ Sırayı Geç</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- BOTTOM HUD -->
+  <div class="game-hud bottom-hud">
+    <div class="player-pill">
+      <div class="pill-dot white-dot"></div>
+      <span class="pill-name">Beyaz</span>
+      <span class="pill-stat">Pip <b id="white-pip">167</b></span>
+      <span class="pill-stat">Off <b id="white-off">0</b></span>
+    </div>
+  </div>
+
+  <!-- Overlays -->
+  <div id="initial-roll-display" class="initial-roll-display"></div>
+  <div id="status-message" class="status-message"></div>
+</div>
+
+<!-- ═══ GAME OVER SCREEN ════════════════════════════════════════ -->
+<div id="gameover-screen" class="screen gameover-screen" style="display:none;">
+  <div class="gameover-container">
+    <div class="gameover-trophy">🏆</div>
+    <h2 id="gameover-title">Beyaz Kazandı!</h2>
+    <p class="gameover-points"><span id="gameover-points">1 puan</span> kazanıldı</p>
+    <div class="gameover-buttons">
+      <button id="gameover-new-game" class="menu-btn primary-btn">Yeni Oyun</button>
+      <button id="gameover-menu"     class="menu-btn secondary-btn">Ana Menü</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ CUSTOM CONFIRM MODAL ════════════════════════════════════ -->
+<div id="custom-modal" class="custom-modal" style="display:none;">
+  <div class="modal-backdrop"></div>
+  <div class="modal-dialog">
+    <p id="modal-text" class="modal-text"></p>
+    <div class="modal-actions">
+      <button id="modal-yes" class="modal-btn modal-yes-btn">Evet</button>
+      <button id="modal-no"  class="modal-btn modal-no-btn">İptal</button>
+    </div>
+  </div>
+</div>
+
+<!-- Scripts -->
+<script src="js/constants.js"></script>
+<script src="js/gameLogic.js"></script>
+<script src="js/board.js"></script>
+<script src="js/dice.js"></script>
+<script src="js/ai.js"></script>
+<script src="js/sounds.js"></script>
+<script src="/socket.io/socket.io.js" onerror="window._socketUnavailable=true;"></script>
+<script src="js/socket.js"></script>
+<script src="js/game.js"></script>
+</body>
+</html>
