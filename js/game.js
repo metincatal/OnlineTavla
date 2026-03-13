@@ -109,8 +109,8 @@ class Game {
 
     if (this.state.gameMode === GAME_MODES.AI && this.state.currentPlayer === PLAYERS.BLACK) {
       setTimeout(() => this.doAITurn(), 900);
-    } else if (this.state.validMoves.length === 0) {
-      this._showConfirmButton();
+    } else {
+      this._checkAutoPlay();
     }
   }
 
@@ -131,7 +131,7 @@ class Game {
     const expanded = expandDice(dice);
 
     if (window.sounds) sounds.play('dice');
-    await this.diceManager.animateRoll(expanded, 550);
+    await this.diceManager.animateRoll(expanded, 550, this.state.currentPlayer);
 
     this.state.dice = expanded;
     this.state.remainingDice = [...expanded];
@@ -142,8 +142,8 @@ class Game {
 
     if (this.state.gameMode === GAME_MODES.AI && this.state.currentPlayer === PLAYERS.BLACK) {
       setTimeout(() => this.doAITurn(), 500);
-    } else if (this.state.validMoves.length === 0) {
-      this._showConfirmButton();
+    } else {
+      this._checkAutoPlay();
     }
   }
 
@@ -200,10 +200,45 @@ class Game {
 
   handlePieceHover(point) {
     if (this.state.phase !== PHASES.MOVING) return;
-    const { currentPlayer, gameMode } = this.state;
+    const { currentPlayer, gameMode, board, remainingDice } = this.state;
     if (gameMode === GAME_MODES.AI && currentPlayer === PLAYERS.BLACK) return;
-    const movesFromPoint = this.state.validMoves.filter(m => m.from === point);
-    this.boardRenderer.showHoverHighlights(movesFromPoint);
+
+    const isWhite = point === 0 ? true : (point === 25 ? false : board[point] > 0);
+    const destinations = this._computeHoverDestinations(point, board, currentPlayer, remainingDice);
+    this.boardRenderer.showGhostHighlights(destinations, isWhite, board);
+  }
+
+  _computeHoverDestinations(from, board, player, remainingDice) {
+    const isWhite = player === PLAYERS.WHITE;
+    const barIndex = isWhite ? 0 : 25;
+    const hasBar = board[barIndex] !== 0;
+
+    if (hasBar && from !== barIndex) return [];
+
+    const results = new Map(); // dest → diceSum
+
+    const recurse = (curBoard, curFrom, diceLeft, sumSoFar) => {
+      const unique = [...new Set(diceLeft)];
+      for (const die of unique) {
+        const curHasBar = curBoard[barIndex] !== 0;
+        const movesForDie = getMovesForDie(curBoard, player, die, curHasBar, isWhite)
+          .filter(m => m.from === curFrom);
+
+        for (const move of movesForDie) {
+          const newSum = sumSoFar + die;
+          if (!results.has(move.to)) results.set(move.to, newSum);
+
+          if (diceLeft.length > 1) {
+            const newBoard = applyMove(curBoard, move, player);
+            const newDice = getDiceAfterMove(diceLeft, die);
+            recurse(newBoard, move.to, newDice, newSum);
+          }
+        }
+      }
+    };
+
+    recurse(board, from, remainingDice, 0);
+    return [...results.entries()].map(([to, diceSum]) => ({ to, diceSum }));
   }
 
   // ─── Undo ────────────────────────────────────────────────────
@@ -269,10 +304,12 @@ class Game {
     this.updateValidMoves();
     this.renderAll();
 
-    if (this.state.remainingDice.length === 0 || this.state.validMoves.length === 0) {
+    if (this.state.remainingDice.length === 0) {
+      // Player used all dice by choice → confirm button
       this._showConfirmButton();
     } else {
-      this.updateUI();
+      // Check if remaining dice have forced or no moves
+      this._checkAutoPlay();
     }
   }
 
@@ -318,6 +355,69 @@ class Game {
 
     if (this.state.gameMode !== GAME_MODES.ONLINE) {
       setTimeout(() => this.rollDice(), 1000);
+    }
+  }
+
+  // ─── Auto-play forced moves ────────────────────────────────────
+
+  async _checkAutoPlay() {
+    if (this.state.phase !== PHASES.MOVING) return;
+    if (this.state.gameMode === GAME_MODES.ONLINE) return;
+    if (this.state.gameMode === GAME_MODES.AI && this.state.currentPlayer === PLAYERS.BLACK) return;
+
+    const moves = this.state.validMoves;
+
+    if (moves.length === 0) {
+      await this.delay(450);
+      if (this.state.phase === PHASES.MOVING) this.endTurn();
+      return;
+    }
+
+    const uniquePairs = new Set(moves.map(m => `${m.from}-${m.to}`));
+    if (uniquePairs.size > 1) {
+      this.updateUI(); // multiple choices, player decides
+      return;
+    }
+
+    // Only one destination possible → forced move
+    await this.delay(350);
+    if (this.state.phase !== PHASES.MOVING) return;
+
+    const move = moves.reduce((a, b) => a.die < b.die ? a : b); // use smallest die
+    this._applyForcedMove(move);
+  }
+
+  _applyForcedMove(move) {
+    const { currentPlayer } = this.state;
+
+    if ((currentPlayer === PLAYERS.WHITE && move.to === 25) ||
+        (currentPlayer === PLAYERS.BLACK && move.to === 0)) {
+      this.bearOffCounts[currentPlayer]++;
+      if (window.sounds) sounds.play('bearoff');
+    } else if (this.state.board[move.to] === (currentPlayer === PLAYERS.WHITE ? -1 : 1)) {
+      if (window.sounds) sounds.play('hit');
+    } else {
+      if (window.sounds) sounds.play('move');
+    }
+
+    this.state.board = applyMove(this.state.board, move, currentPlayer);
+    this.state.remainingDice = getDiceAfterMove(this.state.remainingDice, move.die);
+
+    if (isGameOver(this.state.board)) {
+      const winner = getWinner(this.state.board);
+      if (window.sounds) sounds.play('gameover');
+      this.endGame(winner, getGameType(this.state.board, winner));
+      return;
+    }
+
+    this.updateValidMoves();
+    this.renderAll();
+
+    if (this.state.remainingDice.length === 0) {
+      // All moves were forced and dice exhausted → auto end turn
+      setTimeout(() => { if (this.state.phase === PHASES.MOVING) this.endTurn(); }, 450);
+    } else {
+      setTimeout(() => this._checkAutoPlay(), 350);
     }
   }
 
