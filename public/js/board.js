@@ -62,6 +62,21 @@ class Board {
     this._stop(bg, '100%', '#070707');
     defs.appendChild(bg);
 
+    // Bar wood gradient (horizontal, dark walnut tones)
+    const bwg = this._linearGrad('barWoodGrad', '#2E1208', '#4A2010', '0%', '0%', '100%', '0%');
+    defs.appendChild(bwg);
+    // Hinge plate gradient (brass, light top → dark bottom)
+    const hpg = this._linearGrad('hingeGrad', '#D4A838', '#9A7210', '0%', '0%', '0%', '100%');
+    defs.appendChild(hpg);
+    // Hinge barrel gradient (gold, shiny left to right)
+    const hbg = this._linearGrad('hingeBarrelGrad', '#F0C840', '#C89018', '0%', '0%', '100%', '0%');
+    defs.appendChild(hbg);
+    // Screw head radial gradient
+    const sg = this._radialGrad('screwGrad', '35%', '32%', '65%');
+    this._stop(sg, '0%',   '#F0D060');
+    this._stop(sg, '100%', '#7A5A14');
+    defs.appendChild(sg);
+
     const filter = document.createElementNS('http://www.w3.org/2000/svg', 'filter');
     filter.setAttribute('id', 'pieceShadow');
     filter.setAttribute('x', '-20%'); filter.setAttribute('y', '-20%');
@@ -133,29 +148,119 @@ class Board {
     this.svg.appendChild(g);
   }
 
-  /* ── Bar divider ─────────────────────────────────────────────── */
+  /* ── Bar / spine with hinges ─────────────────────────────────── */
   drawBar() {
     const barX = BOARD_MARGIN + 10 + 6 * POINT_WIDTH;
     const barY = BOARD_MARGIN;
     const barH = SVG_HEIGHT - BOARD_MARGIN * 2;
-    const dividerX = barX + BAR_WIDTH / 2 - 2;
+    const barW = BAR_WIDTH;
 
-    // Thin 4px vertical divider line in the center of the bar area
-    const divider = this.rect(dividerX, barY, 4, barH, 'rgba(200,140,50,0.5)');
-    this.svg.appendChild(divider);
+    // Wood background
+    const wood = this.rect(barX, barY, barW, barH, 'url(#barWoodGrad)');
+    this.svg.appendChild(wood);
 
-    // Transparent click/drag areas covering full bar width (for bar pieces)
-    const topArea = this.rect(barX, barY, BAR_WIDTH, barH/2, 'transparent');
+    // Wood grain lines
+    for (let i = 1; i <= 5; i++) {
+      const gx = barX + (i / 6) * barW;
+      const gl = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+      gl.setAttribute('x1', gx); gl.setAttribute('y1', barY + 5);
+      gl.setAttribute('x2', gx); gl.setAttribute('y2', barY + barH - 5);
+      gl.setAttribute('stroke', `rgba(0,0,0,${0.04 + (i % 2) * 0.03})`);
+      gl.setAttribute('stroke-width', '1.2');
+      gl.style.pointerEvents = 'none';
+      this.svg.appendChild(gl);
+    }
+
+    // Outer border
+    const border = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+    border.setAttribute('x', barX); border.setAttribute('y', barY);
+    border.setAttribute('width', barW); border.setAttribute('height', barH);
+    border.setAttribute('fill', 'none');
+    border.setAttribute('stroke', 'rgba(200,140,50,0.45)');
+    border.setAttribute('stroke-width', '1.5');
+    border.style.pointerEvents = 'none';
+    this.svg.appendChild(border);
+
+    // Center horizontal divider (subtle)
+    const mid = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+    mid.setAttribute('x1', barX + 6); mid.setAttribute('y1', SVG_HEIGHT / 2);
+    mid.setAttribute('x2', barX + barW - 6); mid.setAttribute('y2', SVG_HEIGHT / 2);
+    mid.setAttribute('stroke', 'rgba(200,140,50,0.25)'); mid.setAttribute('stroke-width', '1');
+    mid.style.pointerEvents = 'none';
+    this.svg.appendChild(mid);
+
+    // Two hinges at ~22% and ~78% of bar height
+    this._drawHinge(barX, barW, barY + barH * 0.22);
+    this._drawHinge(barX, barW, barY + barH * 0.78);
+
+    // Transparent click areas for bar pieces
+    const topArea = this.rect(barX, barY, barW, barH / 2, 'transparent');
     topArea.style.cursor = 'pointer';
     topArea.setAttribute('data-point', '25');
     topArea.addEventListener('click', () => this.handlePointClick(25));
     this.svg.appendChild(topArea);
 
-    const botArea = this.rect(barX, barY + barH/2, BAR_WIDTH, barH/2, 'transparent');
+    const botArea = this.rect(barX, barY + barH / 2, barW, barH / 2, 'transparent');
     botArea.style.cursor = 'pointer';
     botArea.setAttribute('data-point', '0');
     botArea.addEventListener('click', () => this.handlePointClick(0));
     this.svg.appendChild(botArea);
+  }
+
+  _drawHinge(barX, barW, centerY) {
+    const plateW = barW - 8;
+    const plateH = 50;
+    const plateX = barX + 4;
+    const plateCX = barX + barW / 2;
+
+    // Drop shadow
+    const shadow = this.rect(plateX + 2, centerY - plateH / 2 + 3, plateW, plateH, 'rgba(0,0,0,0.45)');
+    shadow.setAttribute('rx', '4'); shadow.style.pointerEvents = 'none';
+    this.svg.appendChild(shadow);
+
+    // Brass plate
+    const plate = this.rect(plateX, centerY - plateH / 2, plateW, plateH, 'url(#hingeGrad)');
+    plate.setAttribute('rx', '4'); plate.style.pointerEvents = 'none';
+    this.svg.appendChild(plate);
+
+    // Center barrel (pivot cylinder)
+    const bW = 20; const bH = plateH + 10;
+    const barrel = this.rect(plateCX - bW / 2, centerY - bH / 2, bW, bH, 'url(#hingeBarrelGrad)');
+    barrel.setAttribute('rx', '5');
+    barrel.setAttribute('class', 'hinge-barrel');
+    barrel.style.pointerEvents = 'none';
+    this.svg.appendChild(barrel);
+
+    // Barrel knuckle lines
+    for (let i = 0; i < 4; i++) {
+      const ky = centerY - bH / 2 + 7 + i * (bH - 14) / 3;
+      const kl = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+      kl.setAttribute('x1', plateCX - bW / 2 + 3); kl.setAttribute('y1', ky);
+      kl.setAttribute('x2', plateCX + bW / 2 - 3); kl.setAttribute('y2', ky);
+      kl.setAttribute('stroke', 'rgba(255,210,80,0.45)'); kl.setAttribute('stroke-width', '1');
+      kl.style.pointerEvents = 'none';
+      this.svg.appendChild(kl);
+    }
+
+    // 4 screws
+    const sx1 = plateX + 13, sx2 = plateX + plateW - 13;
+    const sy1 = centerY - 15,  sy2 = centerY + 15;
+    for (const [sx, sy] of [[sx1,sy1],[sx2,sy1],[sx1,sy2],[sx2,sy2]]) {
+      const screw = this.circle(sx, sy, 5, 'url(#screwGrad)', '#8B6A20', 0.8);
+      screw.style.pointerEvents = 'none';
+      this.svg.appendChild(screw);
+      const slot = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+      slot.setAttribute('x1', sx - 3.5); slot.setAttribute('y1', sy);
+      slot.setAttribute('x2', sx + 3.5); slot.setAttribute('y2', sy);
+      slot.setAttribute('stroke', '#6A5010'); slot.setAttribute('stroke-width', '1.8');
+      slot.style.pointerEvents = 'none';
+      this.svg.appendChild(slot);
+    }
+
+    // Top shine highlight on plate
+    const shine = this.rect(plateX + 5, centerY - plateH / 2 + 2, plateW - 10, 3, 'rgba(255,240,150,0.4)');
+    shine.setAttribute('rx', '2'); shine.style.pointerEvents = 'none';
+    this.svg.appendChild(shine);
   }
 
   /* ── Bear-off tray ────────────────────────────────────────────── */

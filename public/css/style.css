@@ -21,6 +21,8 @@
 
 html, body {
   width: 100%; height: 100%;
+  height: 100dvh; /* dynamic viewport — excludes browser chrome on mobile */
+  min-height: -webkit-fill-available;
   background: var(--bg-dark);
   font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
   color: var(--text-light);
@@ -33,6 +35,7 @@ html, body {
 
 .screen {
   position: fixed; inset: 0;
+  height: 100dvh;
   display: flex; flex-direction: column;
   align-items: center; justify-content: center;
 }
@@ -577,4 +580,19 @@ html, body {
 @media (pointer: coarse) {
   .corner-btn      { width: 38px; height: 38px; }
   .board-circle-btn { width: 48px; height: 48px; font-size: 1.2rem; }
+}
+
+/* Desktop: limit board size so it doesn't fill the entire screen */
+@media (min-width: 900px) and (min-height: 600px) {
+  #game-screen    { padding: 16px 48px; }
+  .board-wrapper  { max-height: 82vh; }
+  .side-panel     { width: 68px; }
+}
+
+/* Hinge shimmer animation (SVG element via class) */
+.hinge-barrel { animation: hingeGlint 3.5s ease-in-out infinite; }
+@keyframes hingeGlint {
+  0%, 100% { opacity: 1; }
+  48%       { opacity: 0.78; }
+  52%       { opacity: 0.92; }
 }
