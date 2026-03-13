@@ -743,10 +743,29 @@ document.addEventListener('DOMContentLoaded', () => {
   game = new Game();
   game.init();
 
-  document.getElementById('btn-local').addEventListener('click', () => game.startLocalGame());
-  document.getElementById('btn-ai-easy').addEventListener('click', () => game.startAIGame(AI_DIFFICULTY.EASY));
-  document.getElementById('btn-ai-medium').addEventListener('click', () => game.startAIGame(AI_DIFFICULTY.MEDIUM));
-  document.getElementById('btn-ai-hard').addEventListener('click', () => game.startAIGame(AI_DIFFICULTY.HARD));
+  // Unlock Web Audio on first gesture (required by mobile browsers)
+  const _unlockOnce = () => {
+    if (window.sounds) sounds.unlock();
+    document.removeEventListener('click',      _unlockOnce);
+    document.removeEventListener('touchstart', _unlockOnce);
+  };
+  document.addEventListener('click',      _unlockOnce, { passive: true });
+  document.addEventListener('touchstart', _unlockOnce, { passive: true });
+
+  // Try fullscreen on mobile when starting a game
+  const _tryFullscreen = () => {
+    if (!/Mobi|Android/i.test(navigator.userAgent)) return;
+    const el = document.documentElement;
+    try {
+      if (el.requestFullscreen)             el.requestFullscreen().catch(() => {});
+      else if (el.webkitRequestFullscreen)  el.webkitRequestFullscreen();
+    } catch (_) {}
+  };
+
+  document.getElementById('btn-local').addEventListener('click', () => { _tryFullscreen(); game.startLocalGame(); });
+  document.getElementById('btn-ai-easy').addEventListener('click', () => { _tryFullscreen(); game.startAIGame(AI_DIFFICULTY.EASY); });
+  document.getElementById('btn-ai-medium').addEventListener('click', () => { _tryFullscreen(); game.startAIGame(AI_DIFFICULTY.MEDIUM); });
+  document.getElementById('btn-ai-hard').addEventListener('click', () => { _tryFullscreen(); game.startAIGame(AI_DIFFICULTY.HARD); });
   document.getElementById('btn-create-room').addEventListener('click', () => game.startOnlineGame());
   document.getElementById('btn-join-room').addEventListener('click', () => {
     const id = document.getElementById('room-id-input').value.trim();

@@ -139,7 +139,7 @@ html, body {
 
 #game-screen {
   flex-direction: row;   /* ← side panels + board side by side */
-  align-items: stretch;
+  align-items: center;   /* panels don't stretch full screen height */
   padding: 8px;
   gap: 0;
   background: #0A0400;
@@ -150,18 +150,18 @@ html, body {
    ============================================= */
 
 .side-panel {
-  width: 60px;
+  width: 56px;
   flex-shrink: 0;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   gap: 5px;
-  padding: 14px 4px;
+  padding: 12px 4px;
   background: rgba(255,255,255,0.025);
   border: 1px solid rgba(120,50,10,0.35);
   border-radius: 14px;
-  margin: 0 6px;
+  margin: 0 5px;
   transition: border-color 0.3s, box-shadow 0.3s, background 0.3s;
 }
 
@@ -584,9 +584,15 @@ html, body {
 
 /* Desktop: limit board size so it doesn't fill the entire screen */
 @media (min-width: 900px) and (min-height: 600px) {
-  #game-screen    { padding: 16px 48px; }
+  #game-screen    { padding: 16px 48px; justify-content: center; }
   .board-wrapper  { max-height: 82vh; }
   .side-panel     { width: 68px; }
+}
+
+/* Mobile: prevent panel from overlapping floating corner buttons */
+@media (pointer: coarse) and (orientation: landscape) {
+  .side-panel { margin-bottom: 0; }
+  #panel-white { margin-right: 46px; } /* clear floating corner */
 }
 
 /* Hinge shimmer animation (SVG element via class) */
