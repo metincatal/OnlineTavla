@@ -8,6 +8,14 @@
 </head>
 <body>
 
+<!-- ═══ PORTRAIT WARNING (mobile) ══════════════════════════════ -->
+<div id="portrait-warning">
+  <div class="pw-icon">📱</div>
+  <div class="pw-arrow">↻</div>
+  <h2>Lütfen cihazınızı yatay tutun</h2>
+  <p>Bu oyun yatay (landscape) modda oynanmaktadır.</p>
+</div>
+
 <!-- ═══ MENU SCREEN ═══════════════════════════════════════════ -->
 <div id="menu-screen" class="screen">
   <div class="menu-container">
@@ -49,52 +57,63 @@
 <!-- ═══ GAME SCREEN ════════════════════════════════════════════ -->
 <div id="game-screen" class="screen" style="display:none;">
 
-  <!-- TOP HUD -->
-  <div class="game-hud">
-    <div class="player-pill">
-      <div class="pill-dot black-dot"></div>
-      <span class="pill-name">Siyah</span>
-      <span class="pill-stat">Pip <b id="black-pip">167</b></span>
-      <span class="pill-stat">Off <b id="black-off">0</b></span>
-    </div>
-
-    <div id="current-turn" class="turn-badge">Beyaz'ın Sırası</div>
-
-    <div class="mini-btns">
-      <button id="undo-btn"     class="mini-btn" title="Geri Al">↩</button>
-      <button id="resign-btn"   class="mini-btn" title="Teslim Ol">⚑</button>
-      <button id="new-game-btn" class="mini-btn" title="Yeni Oyun">↺</button>
-      <button id="menu-btn"     class="mini-btn" title="Ana Menü">≡</button>
-    </div>
+  <!-- LEFT SIDE PANEL: Black -->
+  <div class="side-panel" id="panel-black">
+    <div class="pill-dot black-dot"></div>
+    <div class="sp-name">Siyah</div>
+    <div class="sp-divider"></div>
+    <div class="sp-label">pip</div>
+    <div class="sp-value" id="black-pip">167</div>
+    <div class="sp-divider"></div>
+    <div class="sp-label">off</div>
+    <div class="sp-value" id="black-off">0</div>
   </div>
 
   <!-- BOARD -->
   <div class="board-wrapper">
-    <svg id="board-svg" xmlns="http://www.w3.org/2000/svg"></svg>
+    <div class="board-container">
+      <svg id="board-svg" xmlns="http://www.w3.org/2000/svg"></svg>
 
-    <!-- Center strip: dice left, action button right -->
-    <div class="board-center-strip">
-      <div id="dice-animation-container" class="board-dice"></div>
-      <div class="board-action-zone">
-        <button id="roll-btn" class="board-action-btn roll-btn-style" disabled>🎲 Zar At</button>
-        <button id="confirm-turn-btn" class="board-action-btn confirm-btn-style" style="display:none">✓ Sırayı Geç</button>
+      <!-- Center strip: dice left, action buttons right -->
+      <div class="board-center-strip">
+        <div id="dice-animation-container" class="board-dice"></div>
+        <div class="board-action-zone">
+          <!-- Online mode: roll button -->
+          <button id="roll-btn" class="board-action-btn roll-btn-style" disabled style="display:none">🎲 Zar At</button>
+          <!-- After a move: undo -->
+          <button id="undo-btn" class="board-circle-btn undo-circle-btn" style="display:none" title="Geri Al">↩</button>
+          <!-- Turn done: green tick -->
+          <button id="confirm-turn-btn" class="board-circle-btn confirm-circle-btn" style="display:none" title="Sırayı Geç">✓</button>
+        </div>
       </div>
     </div>
   </div>
 
-  <!-- BOTTOM HUD -->
-  <div class="game-hud bottom-hud">
-    <div class="player-pill">
-      <div class="pill-dot white-dot"></div>
-      <span class="pill-name">Beyaz</span>
-      <span class="pill-stat">Pip <b id="white-pip">167</b></span>
-      <span class="pill-stat">Off <b id="white-off">0</b></span>
-    </div>
+  <!-- RIGHT SIDE PANEL: White -->
+  <div class="side-panel" id="panel-white">
+    <div class="pill-dot white-dot"></div>
+    <div class="sp-name">Beyaz</div>
+    <div class="sp-divider"></div>
+    <div class="sp-label">pip</div>
+    <div class="sp-value" id="white-pip">167</div>
+    <div class="sp-divider"></div>
+    <div class="sp-label">off</div>
+    <div class="sp-value" id="white-off">0</div>
   </div>
 
-  <!-- Overlays -->
+  <!-- Floating corner: Resign / New game / Menu (bottom-right) -->
+  <div class="floating-corner">
+    <button id="resign-btn"   class="corner-btn" title="Teslim Ol">⚑</button>
+    <button id="new-game-btn" class="corner-btn" title="Yeni Oyun">↺</button>
+    <button id="menu-btn"     class="corner-btn" title="Ana Menü">≡</button>
+  </div>
+
+  <!-- Hidden elements kept for JS compatibility -->
+  <div id="current-turn" style="display:none"></div>
+  <div id="status-message" style="display:none"></div>
+
+  <!-- Initial roll overlay -->
   <div id="initial-roll-display" class="initial-roll-display"></div>
-  <div id="status-message" class="status-message"></div>
 </div>
 
 <!-- ═══ GAME OVER SCREEN ════════════════════════════════════════ -->
