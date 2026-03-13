@@ -77,8 +77,7 @@ class Game {
   beginInitialRoll() {
     this.state.phase = PHASES.INITIAL_ROLL;
     this.updateUI();
-    this.showStatusMessage('Başlamak için zar atın!');
-    document.getElementById('roll-btn').disabled = false;
+    setTimeout(() => this.doInitialRoll(), 1000);
   }
 
   async doInitialRoll() {
@@ -97,12 +96,10 @@ class Game {
       this.state.currentPlayer = PLAYERS.WHITE;
       this.state.dice = [w, b];
       this.state.remainingDice = [w, b];
-      this.showStatusMessage(`Beyaz başlıyor! (${w} - ${b})`);
     } else {
       this.state.currentPlayer = PLAYERS.BLACK;
       this.state.dice = [b, w];
       this.state.remainingDice = [b, w];
-      this.showStatusMessage(`Siyah başlıyor! (${b} - ${w})`);
     }
 
     this.state.phase = PHASES.MOVING;
@@ -113,7 +110,6 @@ class Game {
     if (this.state.gameMode === GAME_MODES.AI && this.state.currentPlayer === PLAYERS.BLACK) {
       setTimeout(() => this.doAITurn(), 900);
     } else if (this.state.validMoves.length === 0) {
-      this.showStatusMessage('Hamle yapacak yer yok! Sıra rakibe geçiyor...');
       this._showConfirmButton();
     }
   }
@@ -122,7 +118,6 @@ class Game {
 
   async rollDice() {
     if (this.state.phase === PHASES.INITIAL_ROLL) {
-      document.getElementById('roll-btn').disabled = true;
       await this.doInitialRoll();
       return;
     }
@@ -132,7 +127,6 @@ class Game {
       return;
     }
 
-    document.getElementById('roll-btn').disabled = true;
     const dice = rollDice();
     const expanded = expandDice(dice);
 
@@ -149,7 +143,6 @@ class Game {
     if (this.state.gameMode === GAME_MODES.AI && this.state.currentPlayer === PLAYERS.BLACK) {
       setTimeout(() => this.doAITurn(), 500);
     } else if (this.state.validMoves.length === 0) {
-      this.showStatusMessage('Hamle yapacak yer yok! Sıra rakibe geçiyor...');
       this._showConfirmButton();
     }
   }
@@ -168,10 +161,7 @@ class Game {
     const barIndex = isWhite ? 0 : 25;
     const hasBar = board[barIndex] !== 0;
 
-    if (hasBar && point !== barIndex) {
-      this.showStatusMessage("Önce bar'daki taşı oyna!");
-      return;
-    }
+    if (hasBar && point !== barIndex) return;
 
     let hasPiece = false;
     if (point === barIndex) {
@@ -227,14 +217,10 @@ class Game {
   }
 
   undo() {
-    if (this.moveHistory.length === 0) {
-      this.showStatusMessage('Geri alınacak hamle yok!');
-      return;
-    }
+    if (this.moveHistory.length === 0) return;
     if (this.state.phase === PHASES.GAMEOVER) return;
     if (this.state.gameMode === GAME_MODES.ONLINE) return;
 
-    // If confirm is pending, cancel it and restore last move
     this.confirmPending = false;
     this._hideConfirmButton();
 
@@ -246,7 +232,6 @@ class Game {
     this.updateValidMoves();
     this.updateUI();
     this.renderAll();
-    this.showStatusMessage('Hamle geri alındı.');
   }
 
   // ─── Apply a move ─────────────────────────────────────────────
@@ -284,13 +269,10 @@ class Game {
     this.updateValidMoves();
     this.renderAll();
 
-    // Check if turn should end (no more dice or no valid moves)
     if (this.state.remainingDice.length === 0 || this.state.validMoves.length === 0) {
-      const reason = this.state.remainingDice.length === 0
-        ? 'Tüm zarlar kullanıldı.'
-        : 'Kullanılabilecek hamle kalmadı.';
-      this.showStatusMessage(`${reason} Sırayı geçmek için onaylayın.`);
       this._showConfirmButton();
+    } else {
+      this.updateUI();
     }
   }
 
@@ -298,17 +280,12 @@ class Game {
 
   _showConfirmButton() {
     this.confirmPending = true;
-    const roll = document.getElementById('roll-btn');
-    const confirm = document.getElementById('confirm-turn-btn');
-    if (roll) roll.style.display = 'none';
-    if (confirm) confirm.style.display = '';
+    this.updateUI();
   }
 
   _hideConfirmButton() {
-    const roll = document.getElementById('roll-btn');
-    const confirm = document.getElementById('confirm-turn-btn');
-    if (roll) roll.style.display = '';
-    if (confirm) confirm.style.display = 'none';
+    this.confirmPending = false;
+    this.updateUI();
   }
 
   confirmTurnEnd() {
@@ -327,9 +304,8 @@ class Game {
   // ─── Turn end ─────────────────────────────────────────────────
 
   endTurn() {
-    this.moveHistory = [];  // clear undo history on new turn
+    this.moveHistory = [];
     this.confirmPending = false;
-    this._hideConfirmButton();
 
     this.state.currentPlayer = this.state.currentPlayer === PLAYERS.WHITE
       ? PLAYERS.BLACK : PLAYERS.WHITE;
@@ -340,8 +316,8 @@ class Game {
     this.updateUI();
     this.renderAll();
 
-    if (this.state.gameMode === GAME_MODES.AI && this.state.currentPlayer === PLAYERS.BLACK) {
-      setTimeout(() => this.rollDice(), 550);
+    if (this.state.gameMode !== GAME_MODES.ONLINE) {
+      setTimeout(() => this.rollDice(), 1000);
     }
   }
 
@@ -524,28 +500,43 @@ class Game {
 
   updateUI() {
     const { currentPlayer, phase, gameMode } = this.state;
-    const label = currentPlayer === PLAYERS.WHITE ? 'Beyaz' : 'Siyah';
+    const isAITurn = gameMode === GAME_MODES.AI && currentPlayer === PLAYERS.BLACK;
+    const isOnline = gameMode === GAME_MODES.ONLINE;
 
-    const turnEl = document.getElementById('current-turn');
-    if (turnEl) turnEl.textContent = `${label}'in Sırası`;
-
+    // Roll button: only visible in online mode
     const rollBtn = document.getElementById('roll-btn');
-    if (rollBtn && !this.confirmPending) {
-      const isAITurn   = gameMode === GAME_MODES.AI && currentPlayer === PLAYERS.BLACK;
-      const isOnlineMy = gameMode !== GAME_MODES.ONLINE ||
-        (this.onlineGame && this.onlineGame.isMyTurn(currentPlayer));
-      rollBtn.disabled = phase !== PHASES.ROLLING || isAITurn || !isOnlineMy;
-
-      if (phase === PHASES.INITIAL_ROLL) {
-        rollBtn.textContent = '🎲 Başlangıç Zarı';
-        rollBtn.disabled = false;
-      } else if (phase === PHASES.ROLLING) {
+    if (rollBtn) {
+      if (isOnline) {
+        const myTurn = this.onlineGame && this.onlineGame.isMyTurn(currentPlayer);
+        rollBtn.style.display = (phase === PHASES.ROLLING && myTurn) ? '' : 'none';
         rollBtn.textContent = '🎲 Zar At';
+        rollBtn.disabled = false;
       } else {
-        rollBtn.textContent = '🎲 Oynuyor...';
+        rollBtn.style.display = 'none';
       }
     }
 
+    // Undo button: show after first move, non-online, non-AI-turn, while moving
+    const undoBtn = document.getElementById('undo-btn');
+    if (undoBtn) {
+      const showUndo = !isAITurn && !isOnline &&
+        phase === PHASES.MOVING && this.moveHistory.length > 0;
+      undoBtn.style.display = showUndo ? '' : 'none';
+    }
+
+    // Confirm (✓) button: show when confirmPending
+    const confirmBtn = document.getElementById('confirm-turn-btn');
+    if (confirmBtn) {
+      confirmBtn.style.display = this.confirmPending ? '' : 'none';
+    }
+
+    // Side panel active-turn highlight
+    const panelWhite = document.getElementById('panel-white');
+    const panelBlack = document.getElementById('panel-black');
+    if (panelWhite) panelWhite.classList.toggle('active-turn', currentPlayer === PLAYERS.WHITE && phase === PHASES.MOVING);
+    if (panelBlack) panelBlack.classList.toggle('active-turn', currentPlayer === PLAYERS.BLACK && phase === PHASES.MOVING);
+
+    // Pip and off counts
     const whitePip = getPipCount(this.state.board, PLAYERS.WHITE);
     const blackPip = getPipCount(this.state.board, PLAYERS.BLACK);
     const wp = document.getElementById('white-pip'); if (wp) wp.textContent = whitePip;
@@ -554,14 +545,7 @@ class Game {
     const bo = document.getElementById('black-off'); if (bo) bo.textContent = this.bearOffCounts.black;
   }
 
-  showStatusMessage(msg) {
-    const el = document.getElementById('status-message');
-    if (!el) return;
-    el.textContent = msg;
-    el.classList.add('visible');
-    clearTimeout(this._statusTimer);
-    this._statusTimer = setTimeout(() => el.classList.remove('visible'), 4000);
-  }
+  showStatusMessage(msg) { /* no-op */ }
 
   // ─── Helpers ─────────────────────────────────────────────────
 

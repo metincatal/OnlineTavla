@@ -17,6 +17,8 @@ class Board {
     this._dragGhost    = null;
     this._dragStartX   = 0;
     this._dragStartY   = 0;
+    this._lastPointerX = 0;
+    this._lastPointerY = 0;
     this._suppressNextClick = false;
     this._pointerId    = null;
 
@@ -127,10 +129,6 @@ class Board {
       tri.addEventListener('click', () => this.handlePointClick(i));
       g.appendChild(tri);
 
-      const numY = isTop ? y - 14 : y + 14;
-      const num = this.text(x + POINT_WIDTH/2, numY, i.toString(), 'rgba(255,220,150,0.5)', 11);
-      num.style.pointerEvents = 'none';
-      g.appendChild(num);
     }
     this.svg.appendChild(g);
   }
@@ -140,32 +138,13 @@ class Board {
     const barX = BOARD_MARGIN + 10 + 6 * POINT_WIDTH;
     const barY = BOARD_MARGIN;
     const barH = SVG_HEIGHT - BOARD_MARGIN * 2;
+    const dividerX = barX + BAR_WIDTH / 2 - 2;
 
-    const bar = this.rect(barX, barY, BAR_WIDTH, barH, '#1A0800');
-    this.svg.appendChild(bar);
+    // Thin 4px vertical divider line in the center of the bar area
+    const divider = this.rect(dividerX, barY, 4, barH, 'rgba(200,140,50,0.5)');
+    this.svg.appendChild(divider);
 
-    const border = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
-    border.setAttribute('x', barX); border.setAttribute('y', barY);
-    border.setAttribute('width', BAR_WIDTH); border.setAttribute('height', barH);
-    border.setAttribute('fill', 'none');
-    border.setAttribute('stroke', 'rgba(200,140,50,0.45)');
-    border.setAttribute('stroke-width', '2');
-    this.svg.appendChild(border);
-
-    const cl = document.createElementNS('http://www.w3.org/2000/svg', 'line');
-    cl.setAttribute('x1', barX+6); cl.setAttribute('y1', SVG_HEIGHT/2);
-    cl.setAttribute('x2', barX+BAR_WIDTH-6); cl.setAttribute('y2', SVG_HEIGHT/2);
-    cl.setAttribute('stroke','rgba(180,100,30,0.35)'); cl.setAttribute('stroke-width','1');
-    this.svg.appendChild(cl);
-
-    const barLabelTop = this.text(barX + BAR_WIDTH/2, barY + barH*0.25, 'BAR', 'rgba(220,160,60,0.45)', 12);
-    barLabelTop.style.pointerEvents = 'none';
-    this.svg.appendChild(barLabelTop);
-    const barLabelBot = this.text(barX + BAR_WIDTH/2, barY + barH*0.75, 'BAR', 'rgba(220,160,60,0.45)', 12);
-    barLabelBot.style.pointerEvents = 'none';
-    this.svg.appendChild(barLabelBot);
-
-    // Click / drag-source areas for bar pieces
+    // Transparent click/drag areas covering full bar width (for bar pieces)
     const topArea = this.rect(barX, barY, BAR_WIDTH, barH/2, 'transparent');
     topArea.style.cursor = 'pointer';
     topArea.setAttribute('data-point', '25');
@@ -185,25 +164,25 @@ class Board {
     const offW  = SVG_WIDTH - BOARD_MARGIN - offX - 4;
     const halfH = SVG_HEIGHT/2 - BOARD_MARGIN;
 
-    // Black off (top) — drop target dest=0
-    const bRect = this.rect(offX, BOARD_MARGIN, offW, halfH - 2, '#120600');
-    bRect.setAttribute('rx','4'); bRect.setAttribute('stroke','rgba(180,100,30,0.4)');
-    bRect.setAttribute('stroke-width','1.5');
-    bRect.setAttribute('data-dest', '0');
-    this.svg.appendChild(bRect);
-    const bLabel = this.text(offX + offW/2, BOARD_MARGIN + 12, 'OFF', 'rgba(220,160,60,0.55)', 10);
-    bLabel.style.pointerEvents = 'none';
-    this.svg.appendChild(bLabel);
-
-    // White off (bottom) — drop target dest=25
-    const wRect = this.rect(offX, SVG_HEIGHT/2 + 2, offW, halfH - 2, '#120600');
+    // White off (top) — drop target dest=25  [White home = points 19-24 = TOP]
+    const wRect = this.rect(offX, BOARD_MARGIN, offW, halfH - 2, '#120600');
     wRect.setAttribute('rx','4'); wRect.setAttribute('stroke','rgba(180,100,30,0.4)');
     wRect.setAttribute('stroke-width','1.5');
     wRect.setAttribute('data-dest', '25');
     this.svg.appendChild(wRect);
-    const wLabel = this.text(offX + offW/2, SVG_HEIGHT - BOARD_MARGIN - 10, 'OFF', 'rgba(220,160,60,0.55)', 10);
+    const wLabel = this.text(offX + offW/2, BOARD_MARGIN + 12, 'OFF', 'rgba(220,160,60,0.55)', 10);
     wLabel.style.pointerEvents = 'none';
     this.svg.appendChild(wLabel);
+
+    // Black off (bottom) — drop target dest=0  [Black home = points 1-6 = BOTTOM]
+    const bRect = this.rect(offX, SVG_HEIGHT/2 + 2, offW, halfH - 2, '#120600');
+    bRect.setAttribute('rx','4'); bRect.setAttribute('stroke','rgba(180,100,30,0.4)');
+    bRect.setAttribute('stroke-width','1.5');
+    bRect.setAttribute('data-dest', '0');
+    this.svg.appendChild(bRect);
+    const bLabel = this.text(offX + offW/2, SVG_HEIGHT - BOARD_MARGIN - 10, 'OFF', 'rgba(220,160,60,0.55)', 10);
+    bLabel.style.pointerEvents = 'none';
+    this.svg.appendChild(bLabel);
 
     this._offX = offX; this._offW = offW;
   }
@@ -338,12 +317,12 @@ class Board {
     for (const dest of destinations) {
       let el;
       if (dest === 25) {
-        // White bearing off → bottom off zone
-        const cy = SVG_HEIGHT/2 + (SVG_HEIGHT/2 - BOARD_MARGIN) * 0.5;
+        // White bearing off → top off zone (White home = TOP)
+        const cy = BOARD_MARGIN + (SVG_HEIGHT/2 - BOARD_MARGIN) * 0.5;
         el = this.circle(offCX, cy, 16, 'rgba(80,200,80,0.5)', 'rgba(80,200,80,0.85)', 2);
       } else if (dest === 0) {
-        // Black bearing off → top off zone
-        const cy = BOARD_MARGIN + (SVG_HEIGHT/2 - BOARD_MARGIN) * 0.5;
+        // Black bearing off → bottom off zone (Black home = BOTTOM)
+        const cy = SVG_HEIGHT/2 + (SVG_HEIGHT/2 - BOARD_MARGIN) * 0.5;
         el = this.circle(offCX, cy, 16, 'rgba(80,200,80,0.5)', 'rgba(80,200,80,0.85)', 2);
       } else {
         // Regular point — dot near tip
@@ -376,7 +355,7 @@ class Board {
 
   _onPointerDown(e) {
     if (this._dragPending || this._dragging) return;
-    // Only primary pointer
+    // Only primary pointer (mouse left button or first touch)
     if (e.button !== undefined && e.button !== 0) return;
 
     const fromPoint = this._getPointFromElement(e.target);
@@ -386,11 +365,20 @@ class Board {
     this._dragFrom = fromPoint;
     this._dragStartX = e.clientX;
     this._dragStartY = e.clientY;
+    this._lastPointerX = e.clientX;
+    this._lastPointerY = e.clientY;
     this._pointerId = e.pointerId;
+
+    // Capture pointer so we keep receiving events even when finger moves off element
+    try { e.target.setPointerCapture(e.pointerId); } catch (_) {}
   }
 
   _onPointerMove(e) {
     if (!this._dragPending || e.pointerId !== this._pointerId) return;
+
+    // Always track last position for drop detection
+    this._lastPointerX = e.clientX;
+    this._lastPointerY = e.clientY;
 
     const dx = e.clientX - this._dragStartX;
     const dy = e.clientY - this._dragStartY;
@@ -432,8 +420,12 @@ class Board {
       this._suppressNextClick = true;
       setTimeout(() => { this._suppressNextClick = false; }, 150);
 
-      // Find drop target
-      const el = document.elementFromPoint(e.clientX, e.clientY);
+      // Use last tracked position (clientX/Y may be 0 on some mobile browsers at pointerup)
+      const cx = e.clientX || this._lastPointerX;
+      const cy = e.clientY || this._lastPointerY;
+
+      // Find drop target — temporarily hide ghost so elementFromPoint sees what's underneath
+      const el = document.elementFromPoint(cx, cy);
       const destStr = this._findAttr(el, ['data-dest', 'data-point']);
       if (destStr !== null && this.onDropMove) {
         this.onDropMove(this._dragFrom, parseInt(destStr));
@@ -513,10 +505,10 @@ class Board {
     const chipGap = 3;
     const chipX = offX + 7;
 
-    // White off — stack from bottom up
-    const wBottom = SVG_HEIGHT - BOARD_MARGIN - 22;
+    // White off — stack from top down (White home = TOP, off area = TOP)
+    const wTop = BOARD_MARGIN + 22;
     for (let i = 0; i < Math.min(white, 15); i++) {
-      const cy = wBottom - i * (chipH + chipGap);
+      const cy = wTop + i * (chipH + chipGap);
       const chip = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
       chip.setAttribute('x', chipX); chip.setAttribute('y', cy);
       chip.setAttribute('width', chipW); chip.setAttribute('height', chipH);
@@ -532,16 +524,16 @@ class Board {
       this.piecesGroup.appendChild(shine);
     }
     if (white > 0) {
-      const t = this.text(offX + offW/2, SVG_HEIGHT/2 + 16, `${white}`,
+      const t = this.text(offX + offW/2, SVG_HEIGHT/2 - 12, `${white}`,
         'rgba(255,220,150,0.85)', 11, true);
       t.style.pointerEvents = 'none';
       this.piecesGroup.appendChild(t);
     }
 
-    // Black off — stack from top down
-    const bTop = BOARD_MARGIN + 22;
+    // Black off — stack from bottom up (Black home = BOTTOM, off area = BOTTOM)
+    const bBottom = SVG_HEIGHT - BOARD_MARGIN - 22;
     for (let i = 0; i < Math.min(black, 15); i++) {
-      const cy = bTop + i * (chipH + chipGap);
+      const cy = bBottom - i * (chipH + chipGap);
       const chip = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
       chip.setAttribute('x', chipX); chip.setAttribute('y', cy);
       chip.setAttribute('width', chipW); chip.setAttribute('height', chipH);
@@ -557,7 +549,7 @@ class Board {
       this.piecesGroup.appendChild(shine);
     }
     if (black > 0) {
-      const t = this.text(offX + offW/2, SVG_HEIGHT/2 - 12, `${black}`,
+      const t = this.text(offX + offW/2, SVG_HEIGHT/2 + 16, `${black}`,
         'rgba(255,220,150,0.85)', 11, true);
       t.style.pointerEvents = 'none';
       this.piecesGroup.appendChild(t);

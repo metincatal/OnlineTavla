@@ -1,5 +1,5 @@
 /* =============================================
-   Online Tavla — Responsive Stylesheet
+   Online Tavla — Stylesheet
    ============================================= */
 
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -131,31 +131,45 @@ html, body {
 .online-status { font-size: 0.82rem; color: var(--text-muted); margin-top: 5px; }
 
 /* =============================================
-   GAME SCREEN
+   GAME SCREEN — Row layout
    ============================================= */
 
 #game-screen {
+  flex-direction: row;   /* ← side panels + board side by side */
+  align-items: stretch;
+  padding: 8px;
+  gap: 0;
   background: #0A0400;
-  padding: 0; justify-content: space-between; flex-direction: column;
 }
 
-/* ── HUD bars ── */
-.game-hud {
-  width: 100%;
-  display: flex; align-items: center; justify-content: space-between;
-  padding: 6px 12px; gap: 8px;
-  background: linear-gradient(90deg, #1C0A02, #2E1408, #1C0A02);
-  border-bottom: 1px solid rgba(120,50,10,0.5);
-  flex-shrink: 0; min-height: 48px;
-}
-.bottom-hud {
-  border-bottom: none;
-  border-top: 1px solid rgba(120,50,10,0.5);
+/* =============================================
+   SIDE PANELS
+   ============================================= */
+
+.side-panel {
+  width: 60px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  padding: 14px 4px;
+  background: rgba(255,255,255,0.025);
+  border: 1px solid rgba(120,50,10,0.35);
+  border-radius: 14px;
+  margin: 0 6px;
+  transition: border-color 0.3s, box-shadow 0.3s, background 0.3s;
 }
 
-.player-pill { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+.side-panel.active-turn {
+  border-color: rgba(200,149,10,0.55);
+  background: rgba(200,149,10,0.06);
+  box-shadow: 0 0 16px rgba(200,149,10,0.14);
+}
 
-.pill-dot { width: 18px; height: 18px; border-radius: 50%; flex-shrink: 0; }
+/* Piece dot in side panel */
+.pill-dot { width: 22px; height: 22px; border-radius: 50%; flex-shrink: 0; }
 .white-dot {
   background: radial-gradient(circle at 35% 30%, #FFF, #C0C0C0);
   box-shadow: 0 1px 4px rgba(0,0,0,0.5);
@@ -165,74 +179,125 @@ html, body {
   box-shadow: 0 1px 4px rgba(0,0,0,0.7), inset 0 0 0 1px rgba(255,255,255,0.1);
 }
 
-.pill-name { font-weight: 700; font-size: 0.88rem; color: var(--accent-gold-lt); }
-.pill-stat { font-size: 0.75rem; color: var(--text-muted); white-space: nowrap; }
-.pill-stat b { color: var(--text-light); font-weight: 600; }
-
-.turn-badge {
-  font-size: 0.8rem; font-weight: 700;
-  padding: 4px 12px; border-radius: 20px;
-  background: rgba(200,149,10,0.12);
-  border: 1px solid rgba(200,149,10,0.35);
-  color: var(--accent-gold);
-  white-space: nowrap; text-align: center; flex-shrink: 0;
+.sp-name {
+  font-size: 0.6rem; font-weight: 800;
+  color: var(--accent-gold-lt);
+  text-align: center;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
 }
 
-/* Mini action buttons */
-.mini-btns { display: flex; gap: 4px; }
-.mini-btn {
-  width: 32px; height: 32px;
-  background: rgba(255,255,255,0.06);
-  border: 1px solid rgba(255,255,255,0.1);
-  border-radius: 8px; color: var(--text-muted);
-  font-size: 1rem; cursor: pointer;
+.sp-divider {
+  width: 28px; height: 1px;
+  background: rgba(120,50,10,0.45);
+  margin: 2px 0;
+}
+
+.sp-label {
+  font-size: 0.54rem;
+  color: var(--text-muted);
+  text-align: center;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.sp-value {
+  font-size: 0.95rem; font-weight: 700;
+  color: var(--text-light);
+  text-align: center;
+  line-height: 1;
+}
+
+/* =============================================
+   FLOATING CORNER BUTTONS
+   ============================================= */
+
+.floating-corner {
+  position: fixed;
+  bottom: 14px;
+  right: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  z-index: 50;
+}
+
+.corner-btn {
+  width: 34px; height: 34px;
+  background: rgba(18, 9, 3, 0.92);
+  border: 1px solid rgba(120,50,10,0.5);
+  border-radius: 10px;
+  color: var(--text-muted);
+  font-size: 0.95rem;
+  cursor: pointer;
   display: flex; align-items: center; justify-content: center;
-  transition: all 0.18s ease; padding: 0;
+  transition: all 0.18s ease;
 }
-.mini-btn:hover {
-  background: rgba(255,255,255,0.12);
-  color: var(--text-light); border-color: rgba(255,255,255,0.2);
+.corner-btn:hover {
+  background: rgba(40, 20, 8, 0.96);
+  color: var(--text-light);
+  border-color: rgba(200,149,10,0.4);
 }
 
-/* ── Board wrapper ── */
+/* =============================================
+   BOARD WRAPPER + CONTAINER
+   ============================================= */
+
 .board-wrapper {
-  flex: 1; width: 100%;
+  flex: 1;
   display: flex; align-items: center; justify-content: center;
-  overflow: hidden; padding: 2px;
+  overflow: hidden;
+  min-width: 0;
+}
+
+/* Maintains SVG aspect ratio so center-strip aligns with board content */
+.board-container {
   position: relative;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 1200 / 750;
+  max-height: 100%;
 }
 
 #board-svg {
   width: 100%; height: 100%;
-  max-height: calc(100vh - 104px);
   display: block;
+  touch-action: none;
 }
 
-/* ── Board center strip (dice + buttons overlay) ── */
+/* =============================================
+   BOARD CENTER STRIP (dice + action buttons)
+   ============================================= */
+
 .board-center-strip {
   position: absolute;
-  top: 50%; left: 0; right: 0;
+  top: 50%;
+  left: 5%;
+  right: 9%;   /* bear-off tray is ~9% from right */
   transform: translateY(-50%);
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 5% 0 4%;
   pointer-events: none;
   z-index: 5;
 }
 
-/* Dice display (left side) */
+/* Dice display (left) */
 .board-dice {
   display: flex; gap: 10px; align-items: center;
   pointer-events: none;
 }
 
-/* Roll / confirm button (right side) */
+/* Action button zone (right) — vertical stack */
 .board-action-zone {
-  display: flex; flex-direction: column; align-items: center; gap: 6px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
   pointer-events: auto;
 }
 
+/* Online roll button */
 .board-action-btn {
   padding: 9px 20px; border: none; border-radius: 22px;
   font-size: 0.9rem; font-weight: 700;
@@ -240,7 +305,6 @@ html, body {
   transition: all 0.18s ease;
   box-shadow: 0 4px 14px rgba(0,0,0,0.5);
 }
-
 .roll-btn-style {
   background: var(--btn-red);
   color: var(--text-light);
@@ -249,36 +313,56 @@ html, body {
 .roll-btn-style:hover:not(:disabled) {
   background: var(--btn-red-hov);
   transform: translateY(-2px);
-  box-shadow: 0 6px 18px rgba(0,0,0,0.6);
 }
 .roll-btn-style:disabled {
-  background: #2A1A10; cursor: not-allowed;
-  opacity: 0.5; border-color: transparent;
-  box-shadow: none;
+  background: #2A1A10; cursor: not-allowed; opacity: 0.5;
 }
 
-.confirm-btn-style {
+/* Circular buttons (undo + confirm) */
+.board-circle-btn {
+  width: 44px; height: 44px;
+  border-radius: 50%;
+  border: none;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1.15rem;
+  transition: all 0.18s ease;
+  pointer-events: auto;
+  box-shadow: 0 3px 12px rgba(0,0,0,0.5);
+}
+
+.undo-circle-btn {
+  background: rgba(255,255,255,0.1);
+  color: var(--text-muted);
+  border: 1.5px solid rgba(255,255,255,0.2);
+}
+.undo-circle-btn:hover {
+  background: rgba(255,255,255,0.18);
+  color: var(--text-light);
+  transform: scale(1.06);
+}
+
+.confirm-circle-btn {
   background: #1A6030;
   color: #A0FFB0;
-  border: 1px solid rgba(60,220,100,0.3);
+  border: 2px solid rgba(60,220,100,0.45);
   animation: confirmPulse 1.4s ease-in-out infinite;
 }
-.confirm-btn-style:hover {
+.confirm-circle-btn:hover {
   background: #145025;
-  transform: translateY(-2px);
-  box-shadow: 0 6px 18px rgba(0,0,0,0.6);
+  transform: scale(1.1);
+  animation: none;
 }
 
 @keyframes confirmPulse {
-  0%, 100% { box-shadow: 0 4px 14px rgba(0,0,0,0.5); }
-  50% { box-shadow: 0 4px 20px rgba(60,220,100,0.35); }
+  0%, 100% { box-shadow: 0 3px 12px rgba(0,0,0,0.5); }
+  50%       { box-shadow: 0 3px 20px rgba(60,220,100,0.4); }
 }
 
 /* =============================================
    HTML DICE
    ============================================= */
 
-/* Dice inside board-center-strip (no fixed position) */
 .board-dice .die {
   width: 44px; height: 44px;
   border-radius: 10px; position: relative;
@@ -360,29 +444,6 @@ html, body {
 .vs { font-size: 1.1rem; font-weight: 900; color: rgba(200,149,10,0.5); }
 
 /* =============================================
-   STATUS MESSAGE — more visible, toast-style
-   ============================================= */
-
-.status-message {
-  position: fixed; bottom: 72px; left: 50%;
-  transform: translateX(-50%) translateY(8px);
-  background: rgba(10,4,0,0.96);
-  border: 1px solid rgba(200,149,10,0.5);
-  border-radius: 10px; padding: 10px 24px;
-  font-size: 0.95rem; font-weight: 600;
-  color: var(--accent-gold-lt);
-  opacity: 0;
-  transition: opacity 0.28s ease, transform 0.28s ease;
-  pointer-events: none; z-index: 30;
-  white-space: nowrap; max-width: 90vw;
-  box-shadow: 0 6px 24px rgba(0,0,0,0.7);
-}
-.status-message.visible {
-  opacity: 1;
-  transform: translateX(-50%) translateY(0);
-}
-
-/* =============================================
    GAME OVER
    ============================================= */
 
@@ -440,8 +501,7 @@ html, body {
 }
 .modal-text {
   font-size: 1rem; font-weight: 600;
-  color: var(--text-light); margin-bottom: 24px;
-  line-height: 1.5;
+  color: var(--text-light); margin-bottom: 24px; line-height: 1.5;
 }
 .modal-actions { display: flex; gap: 12px; justify-content: center; }
 .modal-btn {
@@ -461,28 +521,59 @@ html, body {
 .modal-no-btn:hover { background: #3A3A3A; color: var(--text-light); }
 
 /* =============================================
+   PORTRAIT WARNING OVERLAY (mobile)
+   ============================================= */
+
+#portrait-warning {
+  display: none;
+  position: fixed; inset: 0;
+  background: var(--bg-dark);
+  z-index: 9999;
+  flex-direction: column;
+  align-items: center; justify-content: center;
+  gap: 16px; text-align: center; padding: 32px 24px;
+}
+#portrait-warning .pw-icon  { font-size: 3.5rem; }
+#portrait-warning .pw-arrow { font-size: 3rem; animation: rotateHint 1.8s ease-in-out infinite; }
+@keyframes rotateHint {
+  0%, 100% { transform: rotate(0deg); }
+  40%, 60% { transform: rotate(90deg); }
+}
+#portrait-warning h2 { font-size: 1.3rem; font-weight: 800; color: var(--accent-gold-lt); }
+#portrait-warning p  { font-size: 0.9rem; color: var(--text-muted); }
+
+@media (max-width: 700px) and (orientation: portrait) {
+  #portrait-warning { display: flex; }
+}
+
+/* =============================================
    RESPONSIVE
    ============================================= */
 
-@media (max-width: 600px) {
+/* Small screens (phone portrait menus etc.) */
+@media (max-width: 500px) {
   .menu-container { padding: 24px 20px; }
   .menu-title h1  { font-size: 1.5rem; }
-  .game-hud       { padding: 4px 8px; min-height: 42px; }
-  .pill-stat      { display: none; }
-  .turn-badge     { font-size: 0.72rem; padding: 3px 8px; }
-  .mini-btn       { width: 28px; height: 28px; font-size: 0.85rem; }
-  .board-action-btn { padding: 7px 14px; font-size: 0.8rem; }
-  .board-dice .die, .die { width: 34px; height: 34px; }
+}
+
+/* Mobile landscape: ultra-compact so board fills as much as possible */
+@media (max-height: 520px) and (orientation: landscape) {
+  #game-screen    { padding: 4px; }
+  .side-panel     { width: 46px; margin: 0 3px; padding: 8px 2px; gap: 3px; border-radius: 10px; }
+  .pill-dot       { width: 18px; height: 18px; }
+  .sp-name        { font-size: 0.5rem; }
+  .sp-value       { font-size: 0.78rem; }
+  .sp-label       { font-size: 0.46rem; }
+  .sp-divider     { width: 20px; }
+  .board-circle-btn { width: 36px; height: 36px; font-size: 0.95rem; }
+  .board-dice .die, .die { width: 30px; height: 30px; }
   .die .dot       { width: 5px; height: 5px; }
+  .floating-corner { bottom: 8px; right: 8px; gap: 4px; }
+  .corner-btn     { width: 28px; height: 28px; font-size: 0.8rem; }
 }
 
-@media (max-height: 500px) and (orientation: landscape) {
-  .game-hud   { min-height: 36px; padding: 2px 8px; }
-  .mini-btn   { width: 28px; height: 28px; }
-  .board-dice .die, .die { width: 32px; height: 32px; }
-}
-
+/* Touch devices: slightly larger tap targets */
 @media (pointer: coarse) {
-  .mini-btn         { width: 40px; height: 40px; }
-  .board-action-btn { padding: 11px 22px; }
+  .corner-btn      { width: 38px; height: 38px; }
+  .board-circle-btn { width: 48px; height: 48px; font-size: 1.2rem; }
 }

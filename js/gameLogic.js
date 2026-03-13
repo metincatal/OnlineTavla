@@ -113,13 +113,15 @@ function canLand(board, player, point) {
 function isHighestPoint(board, player, point) {
   const isWhite = player === PLAYERS.WHITE;
   if (isWhite) {
-    // White home 19-24, bears off from 24. Highest = largest occupied index.
-    for (let i = 24; i >= 19; i--) {
+    // White home 19-24, bears off toward 25.
+    // "Highest point" = most pips from exit = SMALLEST index (point 19 = 6-point, farthest from exit).
+    // Overshoot rule: bear off from the point with the most remaining pips.
+    for (let i = 19; i <= 24; i++) {
       if (board[i] > 0) return i === point;
     }
   } else {
-    // Black home 1-6, bears off from 1.
-    // "Highest" = LARGEST index in 1-6 (furthest from exit — must be the one used for overshoot).
+    // Black home 1-6, bears off toward 0.
+    // "Highest point" = most pips from exit = LARGEST index (point 6 = 6-point, farthest from exit).
     for (let i = 6; i >= 1; i--) {
       if (board[i] < 0) return i === point;
     }
