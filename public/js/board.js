@@ -303,38 +303,51 @@ class Board {
     }
   }
 
-  /* ── Hover highlights ────────────────────────────────────────── */
+  /* ── Hover / ghost highlights ────────────────────────────────── */
   _onHover(point) {
     if (this.onPieceHover) this.onPieceHover(point);
   }
 
-  showHoverHighlights(moves) {
+  showGhostHighlights(destinations, isWhite, board) {
     this.clearHoverHighlights();
-    if (!moves || moves.length === 0) return;
-    const destinations = [...new Set(moves.map(m => m.to))];
-    const offCX = (this._offX || 1082) + (this._offW || 60) / 2;
+    if (!destinations || destinations.length === 0) return;
 
-    for (const dest of destinations) {
-      let el;
-      if (dest === 25) {
-        // White bearing off → top off zone (White home = TOP)
-        const cy = BOARD_MARGIN + (SVG_HEIGHT/2 - BOARD_MARGIN) * 0.5;
-        el = this.circle(offCX, cy, 16, 'rgba(80,200,80,0.5)', 'rgba(80,200,80,0.85)', 2);
-      } else if (dest === 0) {
-        // Black bearing off → bottom off zone (Black home = BOTTOM)
-        const cy = SVG_HEIGHT/2 + (SVG_HEIGHT/2 - BOARD_MARGIN) * 0.5;
-        el = this.circle(offCX, cy, 16, 'rgba(80,200,80,0.5)', 'rgba(80,200,80,0.85)', 2);
+    const fill   = isWhite ? 'url(#wpGrad)' : 'url(#bpGrad)';
+    const stroke = isWhite ? '#CCCCCC'       : '#555555';
+    const offCX  = (this._offX || 1082) + (this._offW || 60) / 2;
+
+    for (const { to, diceSum } of destinations) {
+      let cx, cy;
+
+      if (to === 25) {
+        cx = offCX;
+        cy = BOARD_MARGIN + (SVG_HEIGHT/2 - BOARD_MARGIN) * 0.5;
+      } else if (to === 0) {
+        cx = offCX;
+        cy = SVG_HEIGHT/2 + (SVG_HEIGHT/2 - BOARD_MARGIN) * 0.5;
       } else {
-        // Regular point — dot near tip
-        const { x, y, isTop } = this.getPointPosition(dest);
-        const cx = x + POINT_WIDTH / 2;
-        const dotY = isTop ? y + POINT_HEIGHT * 0.5 : y - POINT_HEIGHT * 0.5;
-        el = this.circle(cx, dotY, 14, 'rgba(80,200,80,0.5)', 'rgba(80,200,80,0.85)', 2);
+        const { x, y, isTop } = this.getPointPosition(to);
+        cx = x + POINT_WIDTH / 2;
+        const existingCount = Math.abs(board[to]);
+        const spacing = this._pieceSpacing(existingCount + 1);
+        cy = isTop
+          ? y + PIECE_RADIUS + existingCount * spacing
+          : y - PIECE_RADIUS - existingCount * spacing;
       }
-      el.style.pointerEvents = 'none';
-      el.setAttribute('data-dest', dest.toString());
-      this.highlightsGroup.appendChild(el);
-      this._highlightEls.push(el);
+
+      // Ghost piece
+      const ghost = this.circle(cx, cy, PIECE_RADIUS - 2, fill, stroke, 1.5);
+      ghost.setAttribute('opacity', '0.38');
+      ghost.style.pointerEvents = 'none';
+      this.highlightsGroup.appendChild(ghost);
+      this._highlightEls.push(ghost);
+
+      // Die sum label centered in ghost
+      const labelColor = isWhite ? '#222' : '#EEE';
+      const label = this.text(cx, cy, String(diceSum), labelColor, 13, true);
+      label.style.pointerEvents = 'none';
+      this.highlightsGroup.appendChild(label);
+      this._highlightEls.push(label);
     }
   }
 

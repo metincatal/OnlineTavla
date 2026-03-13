@@ -10,7 +10,7 @@ class DiceManager {
    * Animate dice rolling then resolve with final values.
    * Returns a Promise resolving to the final dice array.
    */
-  animateRoll(finalDice, durationMs = 600) {
+  animateRoll(finalDice, durationMs = 600, playerClass = 'white') {
     return new Promise((resolve) => {
       if (this.rolling) return;
       this.rolling = true;
@@ -24,18 +24,15 @@ class DiceManager {
 
       container.classList.add('rolling');
       const startTime = Date.now();
-      let frames = 0;
 
       this.animationInterval = setInterval(() => {
-        frames++;
         const fakeD1 = Math.floor(Math.random() * 6) + 1;
         const fakeD2 = Math.floor(Math.random() * 6) + 1;
-        this.renderAnimDice(container, [fakeD1, fakeD2]);
+        this.renderAnimDice(container, [fakeD1, fakeD2], playerClass);
 
         if (Date.now() - startTime >= durationMs) {
           clearInterval(this.animationInterval);
           this.animationInterval = null;
-          this.renderAnimDice(container, finalDice);
           container.classList.remove('rolling');
           this.rolling = false;
           resolve(finalDice);
@@ -44,11 +41,11 @@ class DiceManager {
     });
   }
 
-  renderAnimDice(container, dice) {
+  renderAnimDice(container, dice, playerClass = 'white') {
     container.innerHTML = '';
     dice.forEach(value => {
       const die = document.createElement('div');
-      die.className = 'die';
+      die.className = `die ${playerClass}`;
       die.innerHTML = this.getDieFaceHTML(value);
       container.appendChild(die);
     });
