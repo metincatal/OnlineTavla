@@ -54,6 +54,7 @@ class Game {
     this.bearOffCounts = { white: 0, black: 0 };
     this.moveHistory = [];
     this.confirmPending = false;
+    this._hadChoice = false; // player made at least one chosen move this turn
     this.state = {
       board: [...INITIAL_BOARD],
       currentPlayer: PLAYERS.WHITE,
@@ -188,12 +189,82 @@ class Game {
     if (gameMode === GAME_MODES.ONLINE && !this.onlineGame.isMyTurn(currentPlayer)) return;
     if (gameMode === GAME_MODES.AI && currentPlayer === PLAYERS.BLACK) return;
 
+    // Single-die move
     const moves = this.state.validMoves.filter(m => m.from === from && m.to === to);
-    if (moves.length === 0) return;
+    if (moves.length > 0) {
+      const bestMove = moves.reduce((a, b) => a.die < b.die ? a : b);
+      this.applyPlayerMove(bestMove);
+      return;
+    }
 
-    // Pick smallest die that reaches the destination (to preserve larger dice for other moves)
-    const bestMove = moves.reduce((a, b) => a.die < b.die ? a : b);
-    this.applyPlayerMove(bestMove);
+    // Multi-die sequence (ghost destination with combined dice)
+    const sequence = this._findMoveSequence(
+      from, to, [...this.state.board], [...this.state.remainingDice]
+    );
+    if (sequence && sequence.length > 0) {
+      this._applyMoveSequence(sequence);
+    }
+  }
+
+  _findMoveSequence(from, finalDest, board, dice) {
+    const player = this.state.currentPlayer;
+    const isWhite = player === PLAYERS.WHITE;
+    const barIndex = isWhite ? 0 : 25;
+
+    for (const die of [...new Set(dice)]) {
+      const hasBar = board[barIndex] !== 0;
+      const movesForDie = getMovesForDie(board, player, die, hasBar, isWhite)
+        .filter(m => m.from === from);
+      for (const move of movesForDie) {
+        if (move.to === finalDest) return [move];
+        if (dice.length > 1) {
+          const newBoard = applyMove(board, move, player);
+          const newDice = getDiceAfterMove(dice, die);
+          const rest = this._findMoveSequence(move.to, finalDest, newBoard, newDice);
+          if (rest !== null) return [move, ...rest];
+        }
+      }
+    }
+    return null;
+  }
+
+  _applyMoveSequence(sequence) {
+    this._hadChoice = true;
+    this.pushHistory(); // single undo point for the whole sequence
+
+    for (const move of sequence) {
+      const { currentPlayer } = this.state;
+      if ((currentPlayer === PLAYERS.WHITE && move.to === 25) ||
+          (currentPlayer === PLAYERS.BLACK && move.to === 0)) {
+        this.bearOffCounts[currentPlayer]++;
+        if (window.sounds) sounds.play('bearoff');
+      } else if (this.state.board[move.to] === (currentPlayer === PLAYERS.WHITE ? -1 : 1)) {
+        if (window.sounds) sounds.play('hit');
+      } else {
+        if (window.sounds) sounds.play('move');
+      }
+
+      if (this.state.gameMode === GAME_MODES.ONLINE) this.onlineGame.makeMove(move);
+      this.state.board = applyMove(this.state.board, move, currentPlayer);
+      this.state.remainingDice = getDiceAfterMove(this.state.remainingDice, move.die);
+
+      if (isGameOver(this.state.board)) {
+        const winner = getWinner(this.state.board);
+        if (window.sounds) sounds.play('gameover');
+        this.renderAll();
+        this.endGame(winner, getGameType(this.state.board, winner));
+        return;
+      }
+    }
+
+    this.updateValidMoves();
+    this.renderAll();
+
+    if (this.state.remainingDice.length === 0) {
+      this._showConfirmButton();
+    } else {
+      this._checkAutoPlay();
+    }
   }
 
   // ─── Hover hints ──────────────────────────────────────────────
@@ -274,6 +345,7 @@ class Game {
   applyPlayerMove(move) {
     const { currentPlayer } = this.state;
 
+    this._hadChoice = true; // player made an explicit choice
     this.pushHistory();
 
     if ((currentPlayer === PLAYERS.WHITE && move.to === 25) ||
@@ -343,6 +415,7 @@ class Game {
   endTurn() {
     this.moveHistory = [];
     this.confirmPending = false;
+    this._hadChoice = false;
 
     this.state.currentPlayer = this.state.currentPlayer === PLAYERS.WHITE
       ? PLAYERS.BLACK : PLAYERS.WHITE;
@@ -368,8 +441,13 @@ class Game {
     const moves = this.state.validMoves;
 
     if (moves.length === 0) {
-      await this.delay(450);
-      if (this.state.phase === PHASES.MOVING) this.endTurn();
+      if (this._hadChoice) {
+        // Player made some choices this turn; let them review/undo before passing
+        this._showConfirmButton();
+      } else {
+        await this.delay(450);
+        if (this.state.phase === PHASES.MOVING) this.endTurn();
+      }
       return;
     }
 
@@ -414,8 +492,13 @@ class Game {
     this.renderAll();
 
     if (this.state.remainingDice.length === 0) {
-      // All moves were forced and dice exhausted → auto end turn
-      setTimeout(() => { if (this.state.phase === PHASES.MOVING) this.endTurn(); }, 450);
+      if (this._hadChoice) {
+        // Player made some choices this turn → let them review/undo
+        this._showConfirmButton();
+      } else {
+        // Entire turn was forced → auto end
+        setTimeout(() => { if (this.state.phase === PHASES.MOVING) this.endTurn(); }, 450);
+      }
     } else {
       setTimeout(() => this._checkAutoPlay(), 350);
     }
