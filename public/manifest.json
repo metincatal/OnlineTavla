@@ -1,0 +1,11 @@
+{
+  "name": "Online Tavla",
+  "short_name": "Tavla",
+  "description": "Online Backgammon – Yerel, AI ve online mod",
+  "display": "fullscreen",
+  "orientation": "landscape",
+  "background_color": "#0A0400",
+  "theme_color": "#0A0400",
+  "start_url": "/OnlineTavla/",
+  "scope": "/OnlineTavla/"
+}
