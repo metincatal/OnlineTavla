@@ -813,4 +813,37 @@ document.addEventListener('DOMContentLoaded', () => {
     const p = document.getElementById('ai-difficulty-panel');
     p.style.display = p.style.display === 'none' ? 'flex' : 'none';
   });
+
+  // ─── Settings modal ─────────────────────────────────────────
+  const settingsModal = document.getElementById('settings-modal');
+  const toggleSound   = document.getElementById('toggle-sound');
+  const toggleVurkac  = document.getElementById('toggle-vurkac');
+
+  // Init checkboxes from stored settings
+  toggleSound.checked  = APP_SETTINGS.sound;
+  toggleVurkac.checked = APP_SETTINGS.vurkac;
+
+  // Sync sound enabled state on load
+  if (window.sounds) sounds.enabled = APP_SETTINGS.sound;
+
+  const openSettings = () => { settingsModal.style.display = 'flex'; };
+  const closeSettings = () => { settingsModal.style.display = 'none'; };
+
+  document.getElementById('settings-btn').addEventListener('click', openSettings);
+  document.getElementById('settings-game-btn').addEventListener('click', openSettings);
+  document.getElementById('settings-close-btn').addEventListener('click', closeSettings);
+  document.getElementById('settings-backdrop').addEventListener('click', closeSettings);
+
+  toggleSound.addEventListener('change', () => {
+    APP_SETTINGS.sound = toggleSound.checked;
+    if (window.sounds) sounds.enabled = toggleSound.checked;
+  });
+
+  toggleVurkac.addEventListener('change', () => {
+    APP_SETTINGS.vurkac = toggleVurkac.checked;
+    // Recalculate valid moves immediately if in MOVING phase
+    if (game.state && game.state.phase === PHASES.MOVING) {
+      game.updateValidMoves();
+    }
+  });
 });

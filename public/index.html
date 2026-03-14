@@ -5,14 +5,14 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="theme-color" content="#0A0400">
+  <meta name="theme-color" content="#EEE8DC">
   <link rel="manifest" href="manifest.json">
-  <title>Online Tavla</title>
+  <title>Tavla</title>
   <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
 
-<!-- ═══ PORTRAIT WARNING (mobile) ══════════════════════════════ -->
+<!-- ═══ PORTRAIT WARNING ════════════════════════════════════════ -->
 <div id="portrait-warning">
   <div class="pw-icon">📱</div>
   <div class="pw-arrow">↻</div>
@@ -20,41 +20,71 @@
   <p>Bu oyun yatay (landscape) modda oynanmaktadır.</p>
 </div>
 
-<!-- ═══ MENU SCREEN ═══════════════════════════════════════════ -->
+<!-- ═══ MENU SCREEN ══════════════════════════════════════════════ -->
 <div id="menu-screen" class="screen">
-  <div class="menu-container">
-    <div class="menu-title">
-      <span class="dice-icon">🎲</span>
-      <h1>Online Tavla</h1>
-      <span class="dice-icon">🎲</span>
-    </div>
-    <div class="menu-buttons">
-      <button id="btn-local" class="menu-btn primary-btn">
-        <span class="btn-icon">👥</span><span>Yerel Oyun (2 Kişi)</span>
-      </button>
-      <button id="btn-ai" class="menu-btn secondary-btn">
-        <span class="btn-icon">🤖</span><span>Bilgisayara Karşı</span>
-      </button>
-      <div id="ai-difficulty-panel" style="display:none;" class="difficulty-panel">
-        <button id="btn-ai-easy"   class="diff-btn easy-btn">Kolay</button>
-        <button id="btn-ai-medium" class="diff-btn medium-btn">Orta</button>
-        <button id="btn-ai-hard"   class="diff-btn hard-btn">Zor</button>
+  <div class="menu-wrap">
+
+    <!-- Header: logo + settings -->
+    <div class="menu-header">
+      <div class="menu-logo">
+        <span class="logo-main">TAVLA</span>
+        <span class="logo-sep"></span>
       </div>
-      <div class="online-section">
-        <button id="btn-create-room" class="menu-btn online-btn">
-          <span class="btn-icon">🌐</span><span>Oda Oluştur</span>
+      <button id="settings-btn" class="icon-btn" title="Ayarlar">⚙</button>
+    </div>
+
+    <!-- Mode cards -->
+    <nav class="cards-list">
+
+      <!-- Yerel Oyun -->
+      <button id="btn-local" class="card-btn">
+        <span class="card-ico local-ico">⊞</span>
+        <span class="card-text">
+          <span class="card-name">Yerel Oyun</span>
+          <span class="card-sub">Aynı cihazda 2 kişi</span>
+        </span>
+        <span class="card-arrow">›</span>
+      </button>
+
+      <!-- Bilgisayara Karşı -->
+      <div class="card-group">
+        <button id="btn-ai" class="card-btn">
+          <span class="card-ico ai-ico">⬡</span>
+          <span class="card-text">
+            <span class="card-name">Bilgisayara Karşı</span>
+            <span class="card-sub">Yapay zeka ile oyna</span>
+          </span>
+          <span class="card-arrow" id="ai-arrow">›</span>
         </button>
-        <div class="join-row">
-          <input type="text" id="room-id-input" placeholder="Oda Kodu (ABC123)" maxlength="6" autocomplete="off">
-          <button id="btn-join-room" class="join-btn">Katıl</button>
+        <div id="ai-difficulty-panel" class="diff-panel" style="display:none;">
+          <button id="btn-ai-easy"   class="diff-btn">Kolay</button>
+          <button id="btn-ai-medium" class="diff-btn">Orta</button>
+          <button id="btn-ai-hard"   class="diff-btn">Zor</button>
         </div>
       </div>
-      <div id="room-code-section" style="display:none;" class="room-code-section">
-        <p>Oda Kodunuz:</p>
-        <div id="room-code-display" class="room-code"></div>
-        <p id="online-status-message" class="online-status"></p>
+
+      <!-- Online Oyun -->
+      <div class="card-group">
+        <button id="btn-create-room" class="card-btn">
+          <span class="card-ico online-ico">◈</span>
+          <span class="card-text">
+            <span class="card-name">Online Oyun</span>
+            <span class="card-sub">Oda oluştur veya katıl</span>
+          </span>
+          <span class="card-arrow">›</span>
+        </button>
+        <div class="join-row">
+          <input type="text" id="room-id-input" placeholder="Oda Kodu" maxlength="6" autocomplete="off">
+          <button id="btn-join-room" class="join-btn">Katıl</button>
+        </div>
+        <div id="room-code-section" class="room-code-block" style="display:none;">
+          <span class="room-code-label">Oda Kodunuz</span>
+          <div id="room-code-display" class="room-code"></div>
+          <p id="online-status-message" class="online-status"></p>
+        </div>
       </div>
-    </div>
+
+    </nav>
   </div>
 </div>
 
@@ -82,11 +112,8 @@
       <div class="board-center-strip">
         <div id="dice-animation-container" class="board-dice"></div>
         <div class="board-action-zone">
-          <!-- Online mode: roll button -->
           <button id="roll-btn" class="board-action-btn roll-btn-style" disabled style="display:none">🎲 Zar At</button>
-          <!-- After a move: undo -->
           <button id="undo-btn" class="board-circle-btn undo-circle-btn" style="display:none" title="Geri Al">↩</button>
-          <!-- Turn done: green tick -->
           <button id="confirm-turn-btn" class="board-circle-btn confirm-circle-btn" style="display:none" title="Sırayı Geç">✓</button>
         </div>
       </div>
@@ -105,11 +132,12 @@
     <div class="sp-value" id="white-off">0</div>
   </div>
 
-  <!-- Floating corner: Resign / New game / Menu (bottom-right) -->
+  <!-- Floating corner: Settings / Resign / New game / Menu -->
   <div class="floating-corner">
-    <button id="resign-btn"   class="corner-btn" title="Teslim Ol">⚑</button>
-    <button id="new-game-btn" class="corner-btn" title="Yeni Oyun">↺</button>
-    <button id="menu-btn"     class="corner-btn" title="Ana Menü">≡</button>
+    <button id="settings-game-btn" class="corner-btn" title="Ayarlar">⚙</button>
+    <button id="resign-btn"        class="corner-btn" title="Teslim Ol">⚑</button>
+    <button id="new-game-btn"      class="corner-btn" title="Yeni Oyun">↺</button>
+    <button id="menu-btn"          class="corner-btn" title="Ana Menü">≡</button>
   </div>
 
   <!-- Hidden elements kept for JS compatibility -->
@@ -120,7 +148,7 @@
   <div id="initial-roll-display" class="initial-roll-display"></div>
 </div>
 
-<!-- ═══ GAME OVER SCREEN ════════════════════════════════════════ -->
+<!-- ═══ GAME OVER SCREEN ═══════════════════════════════════════ -->
 <div id="gameover-screen" class="screen gameover-screen" style="display:none;">
   <div class="gameover-container">
     <div class="gameover-trophy">🏆</div>
@@ -129,6 +157,42 @@
     <div class="gameover-buttons">
       <button id="gameover-new-game" class="menu-btn primary-btn">Yeni Oyun</button>
       <button id="gameover-menu"     class="menu-btn secondary-btn">Ana Menü</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ SETTINGS MODAL ══════════════════════════════════════════ -->
+<div id="settings-modal" class="settings-modal" style="display:none;">
+  <div class="sm-bg" id="settings-backdrop"></div>
+  <div class="sm-panel">
+    <div class="sm-head">
+      <span class="sm-title">Ayarlar</span>
+      <button id="settings-close-btn" class="icon-btn">✕</button>
+    </div>
+    <div class="sm-body">
+      <!-- Sound toggle -->
+      <div class="sm-row">
+        <div class="sm-info">
+          <div class="sm-label">Ses Efektleri</div>
+          <div class="sm-desc">Oyun ses efektleri</div>
+        </div>
+        <label class="toggle-switch">
+          <input type="checkbox" id="toggle-sound">
+          <span class="ts-track"><span class="ts-thumb"></span></span>
+        </label>
+      </div>
+      <div class="sm-divider"></div>
+      <!-- Vur-kaç toggle -->
+      <div class="sm-row">
+        <div class="sm-info">
+          <div class="sm-label">Vur-Kaç Kuralı</div>
+          <div class="sm-desc">Rakibin barda pulu varken vurma yasaktır</div>
+        </div>
+        <label class="toggle-switch">
+          <input type="checkbox" id="toggle-vurkac">
+          <span class="ts-track"><span class="ts-thumb"></span></span>
+        </label>
+      </div>
     </div>
   </div>
 </div>

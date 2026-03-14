@@ -40,27 +40,36 @@ const POINT_HEIGHT = 280;
 const PIECE_RADIUS = 32;
 const BAR_WIDTH = 80;
 
-// Colors
+// Colors — natural warm palette
 const COLORS = {
-  boardBg: '#6B3A2A',
-  boardBorder: '#4A2418',
-  pointLight: '#D4A96A',
-  pointDark: '#C0392B',
-  barBg: '#5A3020',
-  whitePiece: '#F5F5F5',
-  whitePieceBorder: '#CCCCCC',
-  blackPiece: '#1A1A1A',
-  blackPieceBorder: '#444444',
-  validMove: 'rgba(39, 174, 96, 0.6)',
-  selectedPiece: 'rgba(241, 196, 15, 0.8)',
-  hitIndicator: 'rgba(231, 76, 60, 0.7)',
-  diceWhite: '#FAFAFA',
-  diceBlack: '#222222',
-  diceDot: '#333333',
-  diceDotWhite: '#DDDDDD',
-  textLight: '#F5F5F5',
-  textDark: '#1A1A1A'
+  boardBg:          '#B07848',   // warm caramel playing surface
+  boardBorder:      '#4A2010',   // dark walnut frame
+  pointLight:       '#DFC898',   // warm cream triangles
+  pointDark:        '#8B3020',   // mahogany/rust triangles
+  barBg:            '#3A1808',   // very dark walnut bar
+  whitePiece:       '#F2EDE0',   // warm ivory
+  whitePieceBorder: '#D4C4A4',
+  blackPiece:       '#1A1208',   // very dark walnut
+  blackPieceBorder: '#3A2416',
+  validMove:        'rgba(50,130,60,0.55)',
+  selectedPiece:    'rgba(175,140,20,0.8)',
+  hitIndicator:     'rgba(195,55,30,0.7)',
+  diceWhite:        '#F5F0E8',
+  diceBlack:        '#1A1208',
+  diceDot:          '#2C1A0E',
+  diceDotWhite:     '#D4C4A4',
+  textLight:        '#F2EDE4',
+  textDark:         '#2C1A0E'
 };
+
+// App settings — persisted in localStorage
+const APP_SETTINGS = {
+  get vurkac() { return localStorage.getItem('app_vurkac') !== 'false'; },
+  set vurkac(v) { localStorage.setItem('app_vurkac', String(v)); },
+  get sound() { return localStorage.getItem('app_sound') !== 'false'; },
+  set sound(v) { localStorage.setItem('app_sound', String(v)); }
+};
+window.APP_SETTINGS = APP_SETTINGS;
 
 // Game constants
 const PLAYERS = {
