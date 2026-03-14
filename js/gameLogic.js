@@ -39,18 +39,6 @@ function generateValidMoves(board, player, remainingDice) {
     return true;
   });
 
-  // Vur-kaç kuralı: rakibin barı varken vurma yasak
-  if (window.APP_SETTINGS && window.APP_SETTINGS.vurkac) {
-    const oppHasBar = isWhite ? board[25] < 0 : board[0] > 0;
-    if (oppHasBar) {
-      allMoves = allMoves.filter(m => {
-        if (m.to === 25 || m.to === 0) return true; // bearing off, not a hit
-        const val = board[m.to];
-        return isWhite ? val !== -1 : val !== 1; // exclude moves that would hit
-      });
-    }
-  }
-
   return allMoves;
 }
 

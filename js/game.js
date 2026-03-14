@@ -55,6 +55,7 @@ class Game {
     this.moveHistory = [];
     this.confirmPending = false;
     this._hadChoice = false; // player made at least one chosen move this turn
+    this._vurkacLockedPoint = null; // vur-kaç: point that hit in own home this turn
     this.state = {
       board: [...INITIAL_BOARD],
       currentPlayer: PLAYERS.WHITE,
@@ -234,14 +235,26 @@ class Game {
 
     for (const move of sequence) {
       const { currentPlayer } = this.state;
+      const isWhiteSeq = currentPlayer === PLAYERS.WHITE;
+      const isHitSeq = this.state.board[move.to] === (isWhiteSeq ? -1 : 1);
+
       if ((currentPlayer === PLAYERS.WHITE && move.to === 25) ||
           (currentPlayer === PLAYERS.BLACK && move.to === 0)) {
         this.bearOffCounts[currentPlayer]++;
         if (window.sounds) sounds.play('bearoff');
-      } else if (this.state.board[move.to] === (currentPlayer === PLAYERS.WHITE ? -1 : 1)) {
+      } else if (isHitSeq) {
         if (window.sounds) sounds.play('hit');
       } else {
         if (window.sounds) sounds.play('move');
+      }
+
+      // Vur-kaç kuralı: sekans içinde kendi evinde vurma
+      if (window.APP_SETTINGS && window.APP_SETTINGS.vurkac && isHitSeq) {
+        const homeStart = isWhiteSeq ? 19 : 1;
+        const homeEnd   = isWhiteSeq ? 24 : 6;
+        if (move.to >= homeStart && move.to <= homeEnd) {
+          this._vurkacLockedPoint = move.to;
+        }
       }
 
       if (this.state.gameMode === GAME_MODES.ONLINE) this.onlineGame.makeMove(move);
@@ -318,7 +331,8 @@ class Game {
     this.moveHistory.push({
       board: [...this.state.board],
       remainingDice: [...this.state.remainingDice],
-      bearOffCounts: { ...this.bearOffCounts }
+      bearOffCounts: { ...this.bearOffCounts },
+      vurkacLockedPoint: this._vurkacLockedPoint
     });
   }
 
@@ -334,6 +348,7 @@ class Game {
     this.state.board = snap.board;
     this.state.remainingDice = snap.remainingDice;
     this.bearOffCounts = snap.bearOffCounts;
+    this._vurkacLockedPoint = snap.vurkacLockedPoint;
     this.state.phase = PHASES.MOVING;
     this.updateValidMoves();
     this.updateUI();
@@ -348,14 +363,26 @@ class Game {
     this._hadChoice = true; // player made an explicit choice
     this.pushHistory();
 
+    const isWhitePlayer = currentPlayer === PLAYERS.WHITE;
+    const isHit = this.state.board[move.to] === (isWhitePlayer ? -1 : 1);
+
     if ((currentPlayer === PLAYERS.WHITE && move.to === 25) ||
         (currentPlayer === PLAYERS.BLACK && move.to === 0)) {
       this.bearOffCounts[currentPlayer]++;
       if (window.sounds) sounds.play('bearoff');
-    } else if (this.state.board[move.to] === (currentPlayer === PLAYERS.WHITE ? -1 : 1)) {
+    } else if (isHit) {
       if (window.sounds) sounds.play('hit');
     } else {
       if (window.sounds) sounds.play('move');
+    }
+
+    // Vur-kaç kuralı: kendi evinde vuruyorsa o pul bu tur kilitlenir
+    if (window.APP_SETTINGS && window.APP_SETTINGS.vurkac && isHit) {
+      const homeStart = isWhitePlayer ? 19 : 1;
+      const homeEnd   = isWhitePlayer ? 24 : 6;
+      if (move.to >= homeStart && move.to <= homeEnd) {
+        this._vurkacLockedPoint = move.to;
+      }
     }
 
     this.state.board = applyMove(this.state.board, move, currentPlayer);
@@ -405,9 +432,14 @@ class Game {
   }
 
   updateValidMoves() {
-    this.state.validMoves = generateValidMoves(
+    let moves = generateValidMoves(
       this.state.board, this.state.currentPlayer, this.state.remainingDice
     );
+    // Vur-kaç kuralı: kendi evinde vurmuşsa o pul artık hareket edemez
+    if (window.APP_SETTINGS && window.APP_SETTINGS.vurkac && this._vurkacLockedPoint !== null) {
+      moves = moves.filter(m => m.from !== this._vurkacLockedPoint);
+    }
+    this.state.validMoves = moves;
   }
 
   // ─── Turn end ─────────────────────────────────────────────────
@@ -416,6 +448,7 @@ class Game {
     this.moveHistory = [];
     this.confirmPending = false;
     this._hadChoice = false;
+    this._vurkacLockedPoint = null;
 
     this.state.currentPlayer = this.state.currentPlayer === PLAYERS.WHITE
       ? PLAYERS.BLACK : PLAYERS.WHITE;
@@ -754,17 +787,20 @@ document.addEventListener('DOMContentLoaded', () => {
     } catch (_) {}
   };
 
-  // Fire fullscreen + sound unlock on EVERY click/touch across the whole page
-  const _gestureOnce = () => {
+  // Unlock audio exactly once (must be in gesture chain)
+  const _soundUnlockOnce = () => {
     if (window.sounds) sounds.unlock();
-    _tryFullscreen();
-    document.removeEventListener('click',      _gestureOnce);
-    document.removeEventListener('touchstart', _gestureOnce);
+    document.removeEventListener('click',      _soundUnlockOnce);
+    document.removeEventListener('touchstart', _soundUnlockOnce);
   };
-  document.addEventListener('click',      _gestureOnce, { passive: true });
-  document.addEventListener('touchstart', _gestureOnce, { passive: true });
+  document.addEventListener('click',      _soundUnlockOnce, { passive: true });
+  document.addEventListener('touchstart', _soundUnlockOnce, { passive: true });
 
-  // Also try fullscreen on orientation change (already unlocked by then)
+  // Try fullscreen on EVERY click/touch (guard inside prevents repeat calls)
+  document.addEventListener('click',      _tryFullscreen, { passive: true });
+  document.addEventListener('touchstart', _tryFullscreen, { passive: true });
+
+  // Also try on orientation change
   window.addEventListener('orientationchange', () => setTimeout(_tryFullscreen, 400));
   if (screen.orientation) screen.orientation.addEventListener('change', () => setTimeout(_tryFullscreen, 400));
 
