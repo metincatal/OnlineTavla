@@ -574,6 +574,17 @@ html, body {
   .die .dot       { width: 5px; height: 5px; }
   .floating-corner { bottom: 8px; right: 8px; gap: 4px; }
   .corner-btn     { width: 28px; height: 28px; font-size: 0.8rem; }
+  /* Compact game-over so it fits mobile landscape without overflowing */
+  .gameover-container {
+    padding: 14px 20px;
+    max-width: min(92vw, 360px);
+    border-radius: 14px;
+  }
+  .gameover-trophy  { font-size: 1.8rem; margin-bottom: 4px; }
+  #gameover-title   { font-size: 1.1rem; margin-bottom: 4px; }
+  .gameover-points  { font-size: 0.8rem; margin-bottom: 10px; }
+  .gameover-buttons { flex-direction: row; gap: 8px; }
+  .gameover-buttons .menu-btn { padding: 8px 14px; font-size: 0.82rem; }
 }
 
 /* Touch devices: slightly larger tap targets */
@@ -586,6 +597,8 @@ html, body {
 @media (min-width: 900px) and (min-height: 600px) {
   #game-screen    { padding: 16px 48px; justify-content: center; }
   .board-wrapper  { max-height: 82vh; }
+  /* Constrain width so board never grows taller than 82vh */
+  .board-container { width: min(100%, calc(82vh * 1200 / 750)); }
   .side-panel     { width: 68px; }
 }
 

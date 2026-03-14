@@ -743,36 +743,46 @@ document.addEventListener('DOMContentLoaded', () => {
   game = new Game();
   game.init();
 
-  // Unlock Web Audio on first gesture (required by mobile browsers)
-  const _unlockOnce = () => {
-    if (window.sounds) sounds.unlock();
-    document.removeEventListener('click',      _unlockOnce);
-    document.removeEventListener('touchstart', _unlockOnce);
-  };
-  document.addEventListener('click',      _unlockOnce, { passive: true });
-  document.addEventListener('touchstart', _unlockOnce, { passive: true });
-
-  // Try fullscreen on mobile when starting a game
+  // Fullscreen helper — fires on any user gesture when in landscape (mobile/Android only)
   const _tryFullscreen = () => {
     if (!/Mobi|Android/i.test(navigator.userAgent)) return;
+    if (document.fullscreenElement) return; // already fullscreen
     const el = document.documentElement;
     try {
-      if (el.requestFullscreen)             el.requestFullscreen().catch(() => {});
-      else if (el.webkitRequestFullscreen)  el.webkitRequestFullscreen();
+      if (el.requestFullscreen)            el.requestFullscreen().catch(() => {});
+      else if (el.webkitRequestFullscreen) el.webkitRequestFullscreen();
     } catch (_) {}
   };
 
-  document.getElementById('btn-local').addEventListener('click', () => { _tryFullscreen(); game.startLocalGame(); });
-  document.getElementById('btn-ai-easy').addEventListener('click', () => { _tryFullscreen(); game.startAIGame(AI_DIFFICULTY.EASY); });
-  document.getElementById('btn-ai-medium').addEventListener('click', () => { _tryFullscreen(); game.startAIGame(AI_DIFFICULTY.MEDIUM); });
-  document.getElementById('btn-ai-hard').addEventListener('click', () => { _tryFullscreen(); game.startAIGame(AI_DIFFICULTY.HARD); });
-  document.getElementById('btn-create-room').addEventListener('click', () => game.startOnlineGame());
+  // Fire fullscreen + sound unlock on EVERY click/touch across the whole page
+  const _gestureOnce = () => {
+    if (window.sounds) sounds.unlock();
+    _tryFullscreen();
+    document.removeEventListener('click',      _gestureOnce);
+    document.removeEventListener('touchstart', _gestureOnce);
+  };
+  document.addEventListener('click',      _gestureOnce, { passive: true });
+  document.addEventListener('touchstart', _gestureOnce, { passive: true });
+
+  // Also try fullscreen on orientation change (already unlocked by then)
+  window.addEventListener('orientationchange', () => setTimeout(_tryFullscreen, 400));
+  if (screen.orientation) screen.orientation.addEventListener('change', () => setTimeout(_tryFullscreen, 400));
+
+  // Game buttons — unlock sounds eagerly in each handler for reliable audio
+  const _u = () => { if (window.sounds) sounds.unlock(); };
+
+  document.getElementById('btn-local').addEventListener('click', () => { _u(); _tryFullscreen(); game.startLocalGame(); });
+  document.getElementById('btn-ai-easy').addEventListener('click', () => { _u(); _tryFullscreen(); game.startAIGame(AI_DIFFICULTY.EASY); });
+  document.getElementById('btn-ai-medium').addEventListener('click', () => { _u(); _tryFullscreen(); game.startAIGame(AI_DIFFICULTY.MEDIUM); });
+  document.getElementById('btn-ai-hard').addEventListener('click', () => { _u(); _tryFullscreen(); game.startAIGame(AI_DIFFICULTY.HARD); });
+  document.getElementById('btn-create-room').addEventListener('click', () => { _u(); game.startOnlineGame(); });
   document.getElementById('btn-join-room').addEventListener('click', () => {
+    _u();
     const id = document.getElementById('room-id-input').value.trim();
     if (id) game.joinOnlineGame(id); else alert('Oda kodu girin!');
   });
 
-  document.getElementById('roll-btn').addEventListener('click', () => game.rollDice());
+  document.getElementById('roll-btn').addEventListener('click', () => { _u(); game.rollDice(); });
   document.getElementById('confirm-turn-btn').addEventListener('click', () => game.confirmTurnEnd());
   document.getElementById('undo-btn').addEventListener('click', () => game.undo());
 
@@ -781,6 +791,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (ok) game.resign();
   });
   document.getElementById('new-game-btn').addEventListener('click', async () => {
+    _u(); _tryFullscreen();
     if (game.state && game.state.phase !== PHASES.GAMEOVER) {
       const ok = await game.showModal('Mevcut oyunu bırakıp yeni oyun başlatmak istiyor musunuz?');
       if (!ok) return;
@@ -795,8 +806,8 @@ document.addEventListener('DOMContentLoaded', () => {
     game.showMenu();
   });
 
-  document.getElementById('gameover-new-game').addEventListener('click', () => game.newGame());
-  document.getElementById('gameover-menu').addEventListener('click', () => game.showMenu());
+  document.getElementById('gameover-new-game').addEventListener('click', () => { _u(); _tryFullscreen(); game.newGame(); });
+  document.getElementById('gameover-menu').addEventListener('click', () => { _u(); game.showMenu(); });
 
   document.getElementById('btn-ai').addEventListener('click', () => {
     const p = document.getElementById('ai-difficulty-panel');

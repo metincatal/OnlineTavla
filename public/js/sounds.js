@@ -4,6 +4,7 @@
 class SoundManager {
   constructor() {
     this.ctx = null;
+    this.comp = null;  // DynamicsCompressor — boosts perceived volume
     this.enabled = true;
     this._unlocked = false;
   }
@@ -11,10 +12,10 @@ class SoundManager {
   // Call this directly from a user-gesture handler (click / touchstart)
   // so the AudioContext gets created and resumed within the gesture chain.
   unlock() {
-    if (this._unlocked) return;
     try {
       if (!this.ctx) {
         this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+        this._buildCompressor();
       }
       if (this.ctx.state === 'suspended') {
         this.ctx.resume();
@@ -24,6 +25,19 @@ class SoundManager {
       this.enabled = false;
     }
   }
+
+  _buildCompressor() {
+    const comp = this.ctx.createDynamicsCompressor();
+    comp.threshold.value = -18;
+    comp.knee.value      = 20;
+    comp.ratio.value     = 8;
+    comp.attack.value    = 0.003;
+    comp.release.value   = 0.2;
+    comp.connect(this.ctx.destination);
+    this.comp = comp;
+  }
+
+  _dest() { return this.comp || this.ctx.destination; }
 
   _resume() {
     if (this.ctx && this.ctx.state === 'suspended') {
@@ -35,8 +49,10 @@ class SoundManager {
     if (!this.enabled) return;
     // Lazy-create context if unlock() was never called
     if (!this.ctx) {
-      try { this.ctx = new (window.AudioContext || window.webkitAudioContext)(); }
-      catch (e) { this.enabled = false; return; }
+      try {
+        this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+        this._buildCompressor();
+      } catch (e) { this.enabled = false; return; }
     }
     this._resume();
     try {
@@ -68,7 +84,7 @@ class SoundManager {
       gain.gain.linearRampToValueAtTime(0.75, ctx.currentTime + delay + 0.01);
       gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + delay + dur);
       src.connect(gain);
-      gain.connect(ctx.destination);
+      gain.connect(this._dest());
       src.start(ctx.currentTime + delay);
     }
   }
@@ -95,7 +111,7 @@ class SoundManager {
 
     src.connect(filter);
     filter.connect(gain);
-    gain.connect(ctx.destination);
+    gain.connect(this._dest());
     src.start();
   }
 
@@ -121,7 +137,7 @@ class SoundManager {
 
     src.connect(gain);
     osc.connect(gain);
-    gain.connect(ctx.destination);
+    gain.connect(this._dest());
     src.start();
     osc.start();
     osc.stop(ctx.currentTime + dur);
@@ -140,7 +156,7 @@ class SoundManager {
       gain.gain.setValueAtTime(0.5, ctx.currentTime);
       gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.28);
       osc.connect(gain);
-      gain.connect(ctx.destination);
+      gain.connect(this._dest());
       osc.start(ctx.currentTime + i * 0.02);
       osc.stop(ctx.currentTime + 0.28);
     });
@@ -159,7 +175,7 @@ class SoundManager {
       gain.gain.linearRampToValueAtTime(0.38, ctx.currentTime + i * 0.12 + 0.05);
       gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + i * 0.12 + 0.7);
       osc.connect(gain);
-      gain.connect(ctx.destination);
+      gain.connect(this._dest());
       osc.start(ctx.currentTime + i * 0.12);
       osc.stop(ctx.currentTime + i * 0.12 + 0.75);
     });
