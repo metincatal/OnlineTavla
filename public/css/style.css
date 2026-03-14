@@ -283,9 +283,10 @@ html, body {
 }
 
 .side-panel.active-turn {
-  border-color: rgba(122,92,18,0.42);
-  background: rgba(246,242,234,0.97);
-  box-shadow: 0 0 16px rgba(122,92,18,0.11);
+  border-color: var(--accent);
+  border-width: 2px;
+  background: #FAF5EA;
+  box-shadow: 0 0 0 3px rgba(122,92,18,0.15), 0 4px 14px rgba(122,92,18,0.18);
 }
 
 .pill-dot { width: 22px; height: 22px; border-radius: 50%; flex-shrink: 0; }
@@ -372,7 +373,10 @@ html, body {
 
 .board-container {
   position: relative;
-  width: 100%;
+  /* Width is the min of available wrapper width and what's needed to keep
+     the board height ≤ available game-screen height (minus 16px padding).
+     This prevents top/bottom clipping on any screen size. */
+  width: min(100%, calc((100dvh - 16px) * 1200 / 750));
   height: auto;
   aspect-ratio: 1200 / 750;
   max-height: 100%;
@@ -443,13 +447,14 @@ html, body {
 }
 
 .undo-circle-btn {
-  background: rgba(122,92,18,0.22);
-  color: var(--accent-lt);
-  border: 2px solid rgba(122,92,18,0.42);
+  background: #D4A840;
+  color: #3A2008;
+  border: 2px solid #B08828;
+  box-shadow: 0 2px 8px rgba(122,92,18,0.3);
 }
 .undo-circle-btn:hover {
-  background: rgba(122,92,18,0.36);
-  border-color: var(--accent);
+  background: #C09030;
+  border-color: #8A6820;
 }
 
 .confirm-circle-btn {
@@ -753,7 +758,7 @@ html, body {
 @media (min-width: 900px) and (min-height: 600px) {
   #game-screen    { padding: 16px 48px; justify-content: center; }
   .board-wrapper  { max-height: 82vh; }
-  .board-container { width: min(100%, calc(82vh * 1200 / 750)); }
+  .board-container { width: min(100%, calc(82dvh * 1200 / 750)); }
   .side-panel     { width: 68px; }
 }
 
