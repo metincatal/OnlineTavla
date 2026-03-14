@@ -10,6 +10,7 @@ class Game {
     this.bearOffCounts = { white: 0, black: 0 };
     this.moveHistory = [];          // undo stack
     this.confirmPending = false;    // waiting for player to confirm turn end
+    this.playerNames = { white: 'Beyaz', black: 'Siyah' };
   }
 
   init() {
@@ -25,16 +26,24 @@ class Game {
     document.getElementById('menu-screen').style.display = 'flex';
     document.getElementById('game-screen').style.display = 'none';
     document.getElementById('gameover-screen').style.display = 'none';
+    document.getElementById('setup-screen').style.display = 'none';
   }
 
-  startLocalGame() {
+  showSetupScreen() {
+    document.getElementById('menu-screen').style.display = 'none';
+    document.getElementById('setup-screen').style.display = 'flex';
+  }
+
+  startLocalGame(whitePlayerName, blackPlayerName) {
+    this.playerNames.white = whitePlayerName || 'Beyaz';
+    this.playerNames.black = blackPlayerName || 'Siyah';
     this.initState(GAME_MODES.LOCAL);
     this.showGame();
     this.beginInitialRoll();
   }
 
   startAIGame(difficulty) {
-    this.ai = new BackgammonAI(difficulty || AI_DIFFICULTY.MEDIUM);
+    this.ai = new BackgammonAI(difficulty || AI_DIFFICULTY.HARD);
     this.initState(GAME_MODES.AI);
     this.showGame();
     this.beginInitialRoll();
@@ -69,6 +78,7 @@ class Game {
 
   showGame() {
     document.getElementById('menu-screen').style.display = 'none';
+    document.getElementById('setup-screen').style.display = 'none';
     document.getElementById('game-screen').style.display = 'flex';
     document.getElementById('gameover-screen').style.display = 'none';
     this.renderAll();
@@ -231,6 +241,15 @@ class Game {
       for (const move of movesForDie) {
         if (move.to === finalDest) return [move];
         if (dice.length > 1) {
+          // Vur-kaç: ara hamle kendi evinde vuruyorsa bu yol kullanılamaz
+          if (window.APP_SETTINGS && window.APP_SETTINGS.vurkac) {
+            const isHit = board[move.to] === (isWhite ? -1 : 1);
+            if (isHit) {
+              const homeStart = isWhite ? 19 : 1;
+              const homeEnd   = isWhite ? 24 : 6;
+              if (move.to >= homeStart && move.to <= homeEnd) continue;
+            }
+          }
           const newBoard = applyMove(board, move, player);
           const newDice = getDiceAfterMove(dice, die);
           const rest = this._findMoveSequence(move.to, finalDest, newBoard, newDice);
@@ -329,6 +348,18 @@ class Game {
         for (const move of movesForDie) {
           const newSum = sumSoFar + die;
           if (!results.has(move.to)) results.set(move.to, newSum);
+
+          // Vur-kaç: kendi evinde vurma → bu noktadan sonra ghost hesaplama
+          if (window.APP_SETTINGS && window.APP_SETTINGS.vurkac) {
+            const isHit = curBoard[move.to] === (isWhite ? -1 : 1);
+            if (isHit) {
+              const homeStart = isWhite ? 19 : 1;
+              const homeEnd   = isWhite ? 24 : 6;
+              if (typeof move.to === 'number' && move.to >= homeStart && move.to <= homeEnd) {
+                continue; // destination added but no further recursion
+              }
+            }
+          }
 
           if (diceLeft.length > 1) {
             const newBoard = applyMove(curBoard, move, player);
@@ -620,7 +651,9 @@ class Game {
     this.renderAll();
 
     const labels = { normal: '', gammon: ' (Gamen!)', backgammon: ' (Backgammon!)', resign: ' (Teslim)' };
-    const winnerLabel = winner === PLAYERS.WHITE ? 'Beyaz' : 'Siyah';
+    const winnerLabel = winner === PLAYERS.WHITE
+      ? this.playerNames.white
+      : this.playerNames.black;
     document.getElementById('gameover-title').textContent = `${winnerLabel} Kazandı!${labels[gameType] || ''}`;
     const points = gameType === 'backgammon' ? 3 : gameType === 'gammon' ? 2 : 1;
     document.getElementById('gameover-points').textContent = `${points} puan`;
@@ -639,9 +672,9 @@ class Game {
 
   newGame() {
     if (this.state && this.state.gameMode === GAME_MODES.AI) {
-      this.startAIGame(this.ai ? this.ai.difficulty : AI_DIFFICULTY.MEDIUM);
+      this.startAIGame(this.ai ? this.ai.difficulty : AI_DIFFICULTY.HARD);
     } else if (this.state && this.state.gameMode === GAME_MODES.LOCAL) {
-      this.startLocalGame();
+      this.startLocalGame(this.playerNames.white, this.playerNames.black);
     } else {
       this.showMenu();
     }
@@ -777,6 +810,12 @@ class Game {
     const bp = document.getElementById('black-pip'); if (bp) bp.textContent = blackPip;
     const wo = document.getElementById('white-off'); if (wo) wo.textContent = this.bearOffCounts.white;
     const bo = document.getElementById('black-off'); if (bo) bo.textContent = this.bearOffCounts.black;
+
+    // Player names in side panels
+    const wName = document.querySelector('#panel-white .sp-name');
+    if (wName) wName.textContent = this.playerNames.white;
+    const bName = document.querySelector('#panel-black .sp-name');
+    if (bName) bName.textContent = this.playerNames.black;
   }
 
   showStatusMessage(msg) { /* no-op */ }
@@ -836,10 +875,8 @@ document.addEventListener('DOMContentLoaded', () => {
   // Game buttons — unlock sounds eagerly in each handler for reliable audio
   const _u = () => { if (window.sounds) sounds.unlock(); };
 
-  document.getElementById('btn-local').addEventListener('click', () => { _u(); _tryFullscreen(); game.startLocalGame(); });
-  document.getElementById('btn-ai-easy').addEventListener('click', () => { _u(); _tryFullscreen(); game.startAIGame(AI_DIFFICULTY.EASY); });
-  document.getElementById('btn-ai-medium').addEventListener('click', () => { _u(); _tryFullscreen(); game.startAIGame(AI_DIFFICULTY.MEDIUM); });
-  document.getElementById('btn-ai-hard').addEventListener('click', () => { _u(); _tryFullscreen(); game.startAIGame(AI_DIFFICULTY.HARD); });
+  document.getElementById('btn-local').addEventListener('click', () => { _u(); _tryFullscreen(); game.showSetupScreen(); });
+  document.getElementById('btn-ai').addEventListener('click', () => { _u(); _tryFullscreen(); game.startAIGame(AI_DIFFICULTY.HARD); });
   document.getElementById('btn-create-room').addEventListener('click', () => { _u(); game.startOnlineGame(); });
   document.getElementById('btn-join-room').addEventListener('click', () => {
     _u();
@@ -874,9 +911,37 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('gameover-new-game').addEventListener('click', () => { _u(); _tryFullscreen(); game.newGame(); });
   document.getElementById('gameover-menu').addEventListener('click', () => { _u(); game.showMenu(); });
 
-  document.getElementById('btn-ai').addEventListener('click', () => {
-    const p = document.getElementById('ai-difficulty-panel');
-    p.style.display = p.style.display === 'none' ? 'flex' : 'none';
+  // ─── Setup screen (local game player config) ────────────────
+  let _setupP1Color = PLAYERS.WHITE;
+
+  const _updateSetupBadges = () => {
+    const b1 = document.getElementById('setup-badge-1');
+    const b2 = document.getElementById('setup-badge-2');
+    if (_setupP1Color === PLAYERS.WHITE) {
+      b1.className = 'player-color-badge white-badge';
+      b2.className = 'player-color-badge black-badge';
+    } else {
+      b1.className = 'player-color-badge black-badge';
+      b2.className = 'player-color-badge white-badge';
+    }
+  };
+  _updateSetupBadges();
+
+  document.getElementById('setup-shuffle').addEventListener('click', () => {
+    _setupP1Color = _setupP1Color === PLAYERS.WHITE ? PLAYERS.BLACK : PLAYERS.WHITE;
+    _updateSetupBadges();
+  });
+  document.getElementById('setup-cancel').addEventListener('click', () => {
+    document.getElementById('setup-screen').style.display = 'none';
+    document.getElementById('menu-screen').style.display = 'flex';
+  });
+  document.getElementById('setup-start').addEventListener('click', () => {
+    _u(); _tryFullscreen();
+    const n1 = document.getElementById('setup-name-1').value.trim() || '1. Oyuncu';
+    const n2 = document.getElementById('setup-name-2').value.trim() || '2. Oyuncu';
+    const whiteName = _setupP1Color === PLAYERS.WHITE ? n1 : n2;
+    const blackName = _setupP1Color === PLAYERS.BLACK ? n1 : n2;
+    game.startLocalGame(whiteName, blackName);
   });
 
   // ─── Settings modal ─────────────────────────────────────────

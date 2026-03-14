@@ -590,6 +590,94 @@ html, body {
 .gameover-buttons { display: flex; flex-direction: column; gap: 10px; }
 
 /* =============================================
+   SETUP SCREEN
+   ============================================= */
+
+#setup-screen {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg);
+}
+.setup-wrap {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-md);
+  border-radius: 20px;
+  padding: 28px 32px;
+  width: min(400px, 88vw);
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  box-shadow: 0 6px 36px rgba(44,26,14,0.13);
+}
+.setup-title {
+  font-size: 1.1rem;
+  font-weight: 800;
+  color: var(--text);
+  text-align: center;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.setup-players {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.setup-player {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.player-color-badge {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  border: 2px solid rgba(0,0,0,0.12);
+  transition: background 0.25s;
+}
+.player-color-badge.white-badge { background: #F2EDE0; border-color: #C8B88A; }
+.player-color-badge.black-badge { background: #1A1208; border-color: #5A3A18; }
+.setup-name-input {
+  flex: 1;
+  padding: 10px 14px;
+  border-radius: 10px;
+  border: 1.5px solid var(--border-md);
+  background: var(--bg);
+  color: var(--text);
+  font-size: 0.98rem;
+  font-family: inherit;
+  outline: none;
+  transition: border-color 0.15s;
+}
+.setup-name-input:focus { border-color: var(--accent); }
+.setup-shuffle-row {
+  display: flex;
+  justify-content: center;
+}
+.setup-shuffle-btn {
+  background: none;
+  border: 1.5px solid var(--accent);
+  color: var(--accent);
+  border-radius: 50%;
+  width: 36px;
+  height: 36px;
+  font-size: 1.1rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s;
+}
+.setup-shuffle-btn:hover { background: rgba(122,92,18,0.1); }
+.setup-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+}
+.setup-actions .menu-btn { flex: 1; text-align: center; }
+
+/* =============================================
    SETTINGS MODAL
    ============================================= */
 
