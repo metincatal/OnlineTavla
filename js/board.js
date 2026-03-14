@@ -48,22 +48,22 @@ class Board {
   initDefs() {
     const defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
 
-    defs.appendChild(this._linearGrad('boardGrad', '#7B3C18', '#5A2810', '0%','0%','100%','100%'));
+    defs.appendChild(this._linearGrad('boardGrad', '#C09868', '#9A7040', '0%','0%','100%','100%'));
 
     const wg = this._radialGrad('wpGrad', '38%', '32%', '65%');
-    this._stop(wg, '0%',   '#FFFFFF');
-    this._stop(wg, '55%',  '#E4E4E4');
-    this._stop(wg, '100%', '#B0B0B0');
+    this._stop(wg, '0%',   '#FAF5EC');
+    this._stop(wg, '55%',  '#E8DEC8');
+    this._stop(wg, '100%', '#C8B898');
     defs.appendChild(wg);
 
     const bg = this._radialGrad('bpGrad', '32%', '25%', '68%');
-    this._stop(bg, '0%',   '#5A5A5A');
-    this._stop(bg, '45%',  '#252525');
-    this._stop(bg, '100%', '#070707');
+    this._stop(bg, '0%',   '#4A3A28');
+    this._stop(bg, '45%',  '#1E1410');
+    this._stop(bg, '100%', '#080604');
     defs.appendChild(bg);
 
     // Bar wood gradient (horizontal, dark walnut tones)
-    const bwg = this._linearGrad('barWoodGrad', '#2E1208', '#4A2010', '0%', '0%', '100%', '0%');
+    const bwg = this._linearGrad('barWoodGrad', '#2A1008', '#3E1A0C', '0%', '0%', '100%', '0%');
     defs.appendChild(bwg);
     // Hinge plate gradient (brass, light top → dark bottom)
     const hpg = this._linearGrad('hingeGrad', '#D4A838', '#9A7210', '0%', '0%', '0%', '100%');
@@ -113,7 +113,7 @@ class Board {
 
   /* ── Board background ─────────────────────────────────────────── */
   drawBoard() {
-    this.svg.appendChild(this.rect(0, 0, SVG_WIDTH, SVG_HEIGHT, '#2A1006'));
+    this.svg.appendChild(this.rect(0, 0, SVG_WIDTH, SVG_HEIGHT, '#3A1A08'));
 
     const inner = this.rect(BOARD_MARGIN, BOARD_MARGIN,
       SVG_WIDTH - BOARD_MARGIN*2, SVG_HEIGHT - BOARD_MARGIN*2, 'url(#boardGrad)');
@@ -135,7 +135,7 @@ class Board {
     const g = this.createGroup('points');
     for (let i = 1; i <= 24; i++) {
       const { x, y, isTop } = this.getPointPosition(i);
-      const color = i % 2 === 1 ? '#8B0000' : '#C4A060';
+      const color = i % 2 === 1 ? COLORS.pointDark : COLORS.pointLight;
       const tri = this.drawTriangle(x, y, POINT_WIDTH, POINT_HEIGHT, isTop, color);
       tri.setAttribute('data-point', i);
       tri.setAttribute('stroke', 'rgba(0,0,0,0.3)');

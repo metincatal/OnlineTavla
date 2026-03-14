@@ -4,8 +4,8 @@
   "description": "Online Backgammon – Yerel, AI ve online mod",
   "display": "fullscreen",
   "orientation": "landscape",
-  "background_color": "#0A0400",
-  "theme_color": "#0A0400",
+  "background_color": "#EEE8DC",
+  "theme_color": "#EEE8DC",
   "start_url": "/OnlineTavla/",
   "scope": "/OnlineTavla/"
 }
