@@ -47,21 +47,14 @@
       </button>
 
       <!-- Bilgisayara Karşı -->
-      <div class="card-group">
-        <button id="btn-ai" class="card-btn">
-          <span class="card-ico ai-ico">⬡</span>
-          <span class="card-text">
-            <span class="card-name">Bilgisayara Karşı</span>
-            <span class="card-sub">Yapay zeka ile oyna</span>
-          </span>
-          <span class="card-arrow" id="ai-arrow">›</span>
-        </button>
-        <div id="ai-difficulty-panel" class="diff-panel" style="display:none;">
-          <button id="btn-ai-easy"   class="diff-btn">Kolay</button>
-          <button id="btn-ai-medium" class="diff-btn">Orta</button>
-          <button id="btn-ai-hard"   class="diff-btn">Zor</button>
-        </div>
-      </div>
+      <button id="btn-ai" class="card-btn">
+        <span class="card-ico ai-ico">⬡</span>
+        <span class="card-text">
+          <span class="card-name">Bilgisayara Karşı</span>
+          <span class="card-sub">Yapay zeka ile oyna</span>
+        </span>
+        <span class="card-arrow">›</span>
+      </button>
 
       <!-- Online Oyun -->
       <div class="card-group">
@@ -85,6 +78,30 @@
       </div>
 
     </nav>
+  </div>
+</div>
+
+<!-- ═══ SETUP SCREEN ═══════════════════════════════════════════ -->
+<div id="setup-screen" class="screen" style="display:none;">
+  <div class="setup-wrap">
+    <div class="setup-title">Oyuncu Ayarları</div>
+    <div class="setup-players">
+      <div class="setup-player">
+        <div class="player-color-badge white-badge" id="setup-badge-1"></div>
+        <input id="setup-name-1" class="setup-name-input" type="text" placeholder="1. Oyuncu" maxlength="12" autocomplete="off">
+      </div>
+      <div class="setup-shuffle-row">
+        <button id="setup-shuffle" class="setup-shuffle-btn" title="Renkleri Değiştir">⇄</button>
+      </div>
+      <div class="setup-player">
+        <div class="player-color-badge black-badge" id="setup-badge-2"></div>
+        <input id="setup-name-2" class="setup-name-input" type="text" placeholder="2. Oyuncu" maxlength="12" autocomplete="off">
+      </div>
+    </div>
+    <div class="setup-actions">
+      <button id="setup-cancel" class="menu-btn secondary-btn">İptal</button>
+      <button id="setup-start" class="menu-btn primary-btn">Oyuna Başla</button>
+    </div>
   </div>
 </div>
 
@@ -186,7 +203,7 @@
       <div class="sm-row">
         <div class="sm-info">
           <div class="sm-label">Vur-Kaç Kuralı</div>
-          <div class="sm-desc">Rakibin barda pulu varken vurma yasaktır</div>
+          <div class="sm-desc">Kendi evinde rakip pulu vurursan, o pul o tur kilitlenir</div>
         </div>
         <label class="toggle-switch">
           <input type="checkbox" id="toggle-vurkac">
