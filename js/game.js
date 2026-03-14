@@ -159,6 +159,12 @@ class Game {
     if (gameMode === GAME_MODES.ONLINE && !this.onlineGame.isMyTurn(currentPlayer)) return;
     if (gameMode === GAME_MODES.AI && currentPlayer === PLAYERS.BLACK) return;
 
+    // Vur-kaç: kilitli pula tıklamayı engelle
+    if (window.APP_SETTINGS && window.APP_SETTINGS.vurkac && point === this._vurkacLockedPoint) {
+      this.showToast('Bu pul bu tur hareket edemez');
+      return;
+    }
+
     const isWhite = currentPlayer === PLAYERS.WHITE;
     const barIndex = isWhite ? 0 : 25;
     const hasBar = board[barIndex] !== 0;
@@ -189,6 +195,12 @@ class Game {
     const { currentPlayer, gameMode } = this.state;
     if (gameMode === GAME_MODES.ONLINE && !this.onlineGame.isMyTurn(currentPlayer)) return;
     if (gameMode === GAME_MODES.AI && currentPlayer === PLAYERS.BLACK) return;
+
+    // Vur-kaç: kilitli pulun sürükle-bırakını engelle
+    if (window.APP_SETTINGS && window.APP_SETTINGS.vurkac && from === this._vurkacLockedPoint) {
+      this.showToast('Bu pul bu tur hareket edemez');
+      return;
+    }
 
     // Single-die move
     const moves = this.state.validMoves.filter(m => m.from === from && m.to === to);
@@ -286,6 +298,12 @@ class Game {
     if (this.state.phase !== PHASES.MOVING) return;
     const { currentPlayer, gameMode, board, remainingDice } = this.state;
     if (gameMode === GAME_MODES.AI && currentPlayer === PLAYERS.BLACK) return;
+
+    // Vur-kaç: kilitli pul üzerinde ghost highlight gösterme
+    if (window.APP_SETTINGS && window.APP_SETTINGS.vurkac && point === this._vurkacLockedPoint) {
+      this.boardRenderer.showGhostHighlights([], false, board);
+      return;
+    }
 
     const isWhite = point === 0 ? true : (point === 25 ? false : board[point] > 0);
     const destinations = this._computeHoverDestinations(point, board, currentPlayer, remainingDice);
@@ -763,6 +781,17 @@ class Game {
 
   showStatusMessage(msg) { /* no-op */ }
 
+  showToast(msg) {
+    const el = document.getElementById('game-toast');
+    if (!el) return;
+    clearTimeout(this._toastTimer);
+    el.textContent = msg;
+    el.style.opacity = '1';
+    el.style.display = 'block';
+    void el.offsetWidth; // reflow to restart animation
+    this._toastTimer = setTimeout(() => { el.style.display = 'none'; }, 2000);
+  }
+
   // ─── Helpers ─────────────────────────────────────────────────
 
   _rand() { return Math.floor(Math.random() * 6) + 1; }
@@ -862,11 +891,20 @@ document.addEventListener('DOMContentLoaded', () => {
   // Sync sound enabled state on load
   if (window.sounds) sounds.enabled = APP_SETTINGS.sound;
 
-  const openSettings = () => { settingsModal.style.display = 'flex'; };
+  const vurkacRow     = document.getElementById('toggle-vurkac').closest('.sm-row');
+  const vurkacDivider = vurkacRow.previousElementSibling; // .sm-divider
+
+  const openSettings = (fromGame = false) => {
+    // Oyun içinde vur-kaç kuralı ayarını gizle
+    const hide = fromGame ? 'none' : '';
+    vurkacRow.style.display = hide;
+    if (vurkacDivider) vurkacDivider.style.display = hide;
+    settingsModal.style.display = 'flex';
+  };
   const closeSettings = () => { settingsModal.style.display = 'none'; };
 
-  document.getElementById('settings-btn').addEventListener('click', openSettings);
-  document.getElementById('settings-game-btn').addEventListener('click', openSettings);
+  document.getElementById('settings-btn').addEventListener('click', () => openSettings(false));
+  document.getElementById('settings-game-btn').addEventListener('click', () => openSettings(true));
   document.getElementById('settings-close-btn').addEventListener('click', closeSettings);
   document.getElementById('settings-backdrop').addEventListener('click', closeSettings);
 

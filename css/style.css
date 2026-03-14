@@ -649,6 +649,32 @@ html, body {
 .toggle-switch input:checked + .ts-track .ts-thumb { transform: translateX(20px); }
 
 /* =============================================
+   GAME TOAST
+   ============================================= */
+
+.game-toast {
+  position: fixed;
+  bottom: 72px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(44,26,14,0.86);
+  color: #F6F2EA;
+  padding: 7px 18px;
+  border-radius: 20px;
+  font-size: 0.82rem;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  z-index: 500;
+  white-space: nowrap;
+  pointer-events: none;
+  animation: toastPop 0.2s ease;
+}
+@keyframes toastPop {
+  from { opacity: 0; transform: translateX(-50%) translateY(6px); }
+  to   { opacity: 1; transform: translateX(-50%) translateY(0); }
+}
+
+/* =============================================
    CUSTOM CONFIRM MODAL
    ============================================= */
 
