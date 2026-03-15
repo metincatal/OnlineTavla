@@ -236,7 +236,17 @@
 <script src="js/dice.js"></script>
 <script src="js/ai.js"></script>
 <script src="js/sounds.js"></script>
-<script src="/socket.io/socket.io.js" onerror="window._socketUnavailable=true;"></script>
+<script>
+  // socket.io yalnızca Node.js sunucusundan (port 3000) gelir; Live Server'da yoktur.
+  if (location.port === '3000') {
+    const s = document.createElement('script');
+    s.src = '/socket.io/socket.io.js';
+    s.onerror = () => { window._socketUnavailable = true; };
+    document.currentScript.parentNode.insertBefore(s, document.currentScript.nextSibling);
+  } else {
+    window._socketUnavailable = true;
+  }
+</script>
 <script src="js/socket.js"></script>
 <script src="js/game.js"></script>
 </body>
