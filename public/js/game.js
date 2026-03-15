@@ -96,13 +96,15 @@ class Game {
     let w, b;
     do { w = this._rand(); b = this._rand(); } while (w === b);
 
-    showInitialRollDice(w, b);
-    if (window.sounds) sounds.play('dice');
+    // 3D zar animasyonu (ses animasyon içinde ilk sekmede çalar)
+    await this.diceManager.animateRoll([w, b], 600, 'white');
 
+    // VS karşılaştırma overlay
+    showInitialRollDice(w, b);
     setTimeout(() => {
       const el = document.getElementById('initial-roll-display');
       if (el) el.innerHTML = '';
-    }, 2400);
+    }, 2000);
 
     if (w > b) {
       this.state.currentPlayer = PLAYERS.WHITE;
@@ -142,7 +144,7 @@ class Game {
     const dice = rollDice();
     const expanded = expandDice(dice);
 
-    if (window.sounds) sounds.play('dice');
+    // Ses animasyon içinde ilk sekmede çalar
     await this.diceManager.animateRoll(expanded, 450, this.state.currentPlayer);
 
     this.state.dice = expanded;
