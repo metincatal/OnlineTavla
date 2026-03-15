@@ -143,7 +143,7 @@ class Game {
     const expanded = expandDice(dice);
 
     if (window.sounds) sounds.play('dice');
-    await this.diceManager.animateRoll(expanded, 550, this.state.currentPlayer);
+    await this.diceManager.animateRoll(expanded, 450, this.state.currentPlayer);
 
     this.state.dice = expanded;
     this.state.remainingDice = [...expanded];

@@ -25,7 +25,7 @@ class SoundManager {
       } catch (e) { /* 404 veya ağ hatası → procedural */ }
     };
     load('dice', 'sounds/zar.mp3');
-    load('move',  'sounds/pulHareket.mp3');
+    load('move',  'sounds/pulHareket2.mp3');
   }
 
   // ─── 2. Adım: Ham buffer'ı decode et ─────────────────────────
@@ -71,8 +71,8 @@ class SoundManager {
   // Orijinal dosyaya dokunulmaz, sadece bu aralık çalınır.
   static get TRIM() {
     return {
-      dice: { offset: 0, duration: 0.80  },  // 0–10 ms
-      move: { offset: 0, duration: 0.40 },  // 0–0.6 ms
+      dice: { offset: 0,     duration: 0.80 },
+      move: { offset: 0.3, duration: null  },  // baştan 30ms kırp, geri kalanı çal
     };
   }
 
@@ -87,7 +87,11 @@ class SoundManager {
     g.connect(this._dest());
     const trim = SoundManager.TRIM[key];
     if (trim) {
-      src.start(0, trim.offset, trim.duration);
+      if (trim.duration != null) {
+        src.start(0, trim.offset, trim.duration);
+      } else {
+        src.start(0, trim.offset);  // offset var, duration sınırı yok
+      }
     } else {
       src.start();
     }
