@@ -71,7 +71,7 @@ class SoundManager {
   // Orijinal dosyaya dokunulmaz, sadece bu aralık çalınır.
   static get TRIM() {
     return {
-      dice: { offset: 0,     duration: 0.80 },
+      dice: { offset: 0.05,    duration: 0.5 },
       move: { offset: 0.3, duration: null  },  // baştan 30ms kırp, geri kalanı çal
     };
   }
