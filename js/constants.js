@@ -65,12 +65,34 @@ const COLORS = {
   textDark:         '#2C1A0E'
 };
 
+// Server URL — production vs localhost
+const SERVER_URL = (() => {
+  if (location.hostname === 'localhost' || location.hostname === '127.0.0.1') {
+    return `http://${location.hostname}:3000`;
+  }
+  // GitHub Pages or other static host → connect to Render
+  return 'https://bearoffbattle.onrender.com';
+})();
+
 // App settings — persisted in localStorage
 const APP_SETTINGS = {
   get vurkac() { return localStorage.getItem('app_vurkac') !== 'false'; },
   set vurkac(v) { localStorage.setItem('app_vurkac', String(v)); },
   get sound() { return localStorage.getItem('app_sound') !== 'false'; },
-  set sound(v) { localStorage.setItem('app_sound', String(v)); }
+  set sound(v) { localStorage.setItem('app_sound', String(v)); },
+  get nickname() {
+    return localStorage.getItem('tavla_nickname') || '';
+  },
+  set nickname(v) {
+    localStorage.setItem('tavla_nickname', String(v).slice(0, 16));
+  },
+  get coins() {
+    const val = parseInt(localStorage.getItem('tavla_coins'));
+    return isNaN(val) ? 1000 : val;
+  },
+  set coins(v) {
+    localStorage.setItem('tavla_coins', String(Math.max(0, Math.floor(v))));
+  }
 };
 window.APP_SETTINGS = APP_SETTINGS;
 
@@ -98,6 +120,14 @@ const AI_DIFFICULTY = {
   MEDIUM: 'medium',
   HARD: 'hard'
 };
+
+const ROOM_TYPES = {
+  PRIVATE: 'private',
+  OPEN: 'open',
+  INVITE: 'invite'
+};
+
+const BET_OPTIONS = [50, 100, 250, 500];
 
 // White home board: points 1-6, Black home board: points 19-24
 const WHITE_HOME_START = 1;
