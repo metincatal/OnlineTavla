@@ -179,7 +179,7 @@ class Game {
 
     // Vur-kaç: kilitli pula tıklamayı engelle
     if (window.APP_SETTINGS && window.APP_SETTINGS.vurkac && point === this._vurkacLockedPoint) {
-      this.showToast('Bu pul bu tur hareket edemez');
+      this.showToast('Vur-Kaç: Bu pul bu tur kilitli');
       return;
     }
 
@@ -218,7 +218,7 @@ class Game {
 
     // Vur-kaç: kilitli pulun sürükle-bırakını engelle
     if (window.APP_SETTINGS && window.APP_SETTINGS.vurkac && from === this._vurkacLockedPoint) {
-      this.showToast('Bu pul bu tur hareket edemez');
+      this.showToast('Vur-Kaç: Bu pul bu tur kilitli');
       return;
     }
 
@@ -661,20 +661,21 @@ class Game {
     const moves = this.state.validMoves;
 
     if (moves.length === 0) {
+      // Show appropriate notice
+      const isWhite = this.state.currentPlayer === PLAYERS.WHITE;
+      const barIdx = isWhite ? 0 : 25;
+      if (this.state.board[barIdx] !== 0) {
+        this.showToast('Kırık pul giremedi');
+      } else if (this.state.remainingDice.length > 0) {
+        this.showToast('Kalan zarlarla oynayacak hamle yok');
+      }
+
       if (this._hadChoice) {
         this._autoPlaying = false;
         this._showConfirmButton();
       } else {
         this._autoPlaying = true;
-        // Show message: bar piece can't enter or no moves
-        const isWhite = this.state.currentPlayer === PLAYERS.WHITE;
-        const barIdx = isWhite ? 0 : 25;
-        if (this.state.board[barIdx] !== 0) {
-          this.showToast('Kırık pul giremedi — sıra geçiyor');
-        } else {
-          this.showToast('Hamle yok — sıra geçiyor');
-        }
-        await this.delay(1200);
+        await this.delay(1500);
         this._autoPlaying = false;
         if (this.state.phase === PHASES.MOVING) this.endTurn();
       }
