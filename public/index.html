@@ -20,17 +20,30 @@
   <p>Bu oyun yatay (landscape) modda oynanmaktadır.</p>
 </div>
 
+<!-- ═══ GLOBAL NOTIFICATION BANNER ═════════════════════════════ -->
+<div id="global-notification" class="global-notification" style="display:none;">
+  <span id="global-notification-text"></span>
+  <div id="global-notification-actions" class="gn-actions"></div>
+  <button id="global-notification-close" class="gn-close">✕</button>
+</div>
+
 <!-- ═══ MENU SCREEN ══════════════════════════════════════════════ -->
 <div id="menu-screen" class="screen">
   <div class="menu-wrap">
 
-    <!-- Header: logo + settings -->
+    <!-- Header: logo + coin + settings -->
     <div class="menu-header">
       <div class="menu-logo">
         <span class="logo-main">TAVLA</span>
         <span class="logo-sep"></span>
       </div>
-      <button id="settings-btn" class="icon-btn" title="Ayarlar">⚙</button>
+      <div class="menu-header-right">
+        <div class="coin-display" id="menu-coin-display">
+          <span class="coin-icon">⬤</span>
+          <span class="coin-amount" id="menu-coin-amount">1000</span>
+        </div>
+        <button id="settings-btn" class="icon-btn" title="Ayarlar">⚙</button>
+      </div>
     </div>
 
     <!-- Mode cards -->
@@ -58,22 +71,30 @@
 
       <!-- Online Oyun -->
       <div class="card-group">
-        <button id="btn-create-room" class="card-btn">
-          <span class="card-ico online-ico">◈</span>
-          <span class="card-text">
-            <span class="card-name">Online Oyun</span>
-            <span class="card-sub">Oda oluştur veya katıl</span>
+        <div class="card-group-header">
+          <span class="card-group-title">Online Oyun</span>
+          <span class="online-badge" id="online-badge">
+            <span class="online-dot"></span>
+            <span id="online-count-text">0</span>
           </span>
-          <span class="card-arrow">›</span>
-        </button>
+        </div>
+        <div class="online-buttons-row">
+          <button id="btn-create-room" class="card-btn card-btn-half">
+            <span class="card-ico create-ico">＋</span>
+            <span class="card-text">
+              <span class="card-name">Oda Oluştur</span>
+            </span>
+          </button>
+          <button id="btn-lobby" class="card-btn card-btn-half">
+            <span class="card-ico lobby-ico">☰</span>
+            <span class="card-text">
+              <span class="card-name">Lobiye Gir</span>
+            </span>
+          </button>
+        </div>
         <div class="join-row">
           <input type="text" id="room-id-input" placeholder="Oda Kodu" maxlength="6" autocomplete="off">
           <button id="btn-join-room" class="join-btn">Katıl</button>
-        </div>
-        <div id="room-code-section" class="room-code-block" style="display:none;">
-          <span class="room-code-label">Oda Kodunuz</span>
-          <div id="room-code-display" class="room-code"></div>
-          <p id="online-status-message" class="online-status"></p>
         </div>
       </div>
 
@@ -129,6 +150,143 @@
   </div>
 </div>
 
+<!-- ═══ ROOM CREATE SCREEN ════════════════════════════════════ -->
+<div id="room-create-screen" class="screen" style="display:none;">
+  <div class="setup-wrap room-create-wrap">
+    <div class="setup-title">Oda Oluştur</div>
+
+    <div class="rc-field">
+      <label class="rc-label">Oda Adı</label>
+      <input type="text" id="rc-room-name" class="rc-input" placeholder="Oda adı..." maxlength="20" autocomplete="off">
+    </div>
+
+    <div class="rc-field">
+      <label class="rc-label">Oda Tipi</label>
+      <div class="rc-type-row">
+        <button class="rc-type-btn active" data-type="private">
+          <span class="rc-type-icon">🔒</span>
+          <span class="rc-type-name">Özel</span>
+        </button>
+        <button class="rc-type-btn" data-type="open">
+          <span class="rc-type-icon">🌍</span>
+          <span class="rc-type-name">Açık</span>
+        </button>
+        <button class="rc-type-btn" data-type="invite">
+          <span class="rc-type-icon">✉</span>
+          <span class="rc-type-name">Davetli</span>
+        </button>
+      </div>
+    </div>
+
+    <div class="rc-field">
+      <label class="rc-label">Bahis Miktarı</label>
+      <div class="rc-bet-row">
+        <button class="rc-bet-btn" data-bet="50">50</button>
+        <button class="rc-bet-btn active" data-bet="100">100</button>
+        <button class="rc-bet-btn" data-bet="250">250</button>
+        <button class="rc-bet-btn" data-bet="500">500</button>
+      </div>
+    </div>
+
+    <div class="setup-actions">
+      <button id="rc-cancel" class="menu-btn secondary-btn">İptal</button>
+      <button id="rc-create" class="menu-btn primary-btn">Oluştur</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ LOBBY SCREEN ══════════════════════════════════════════ -->
+<div id="lobby-screen" class="screen" style="display:none;">
+  <div class="lobby-wrap">
+    <div class="lobby-header">
+      <button id="lobby-back" class="icon-btn">←</button>
+      <div class="lobby-title">Lobi</div>
+      <span class="online-badge" id="lobby-online-badge">
+        <span class="online-dot"></span>
+        <span id="lobby-online-count">0</span>
+      </span>
+    </div>
+
+    <div class="lobby-search-row">
+      <input type="text" id="lobby-search" class="lobby-search" placeholder="Oda ara..." autocomplete="off">
+    </div>
+
+    <div class="lobby-rooms-list" id="lobby-rooms-list">
+      <div class="lobby-empty" id="lobby-empty">Aktif oda bulunamadı</div>
+    </div>
+
+    <div class="lobby-bottom">
+      <div class="join-row">
+        <input type="text" id="lobby-room-code" placeholder="Oda Kodu" maxlength="6" autocomplete="off">
+        <button id="lobby-join-btn" class="join-btn">Katıl</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ WAITING ROOM SCREEN ═══════════════════════════════════ -->
+<div id="waiting-room-screen" class="screen" style="display:none;">
+  <div class="setup-wrap waiting-room-wrap">
+    <div class="wr-header">
+      <div class="setup-title">Bekleme Odası</div>
+      <div class="wr-room-code" id="wr-room-code">------</div>
+      <button id="wr-copy-code" class="wr-copy-btn" title="Kodu Kopyala">📋</button>
+    </div>
+
+    <div class="wr-info">
+      <div class="wr-info-row">
+        <span class="wr-info-label">Oda:</span>
+        <span class="wr-info-value" id="wr-room-name">-</span>
+      </div>
+      <div class="wr-info-row">
+        <span class="wr-info-label">Tip:</span>
+        <span class="wr-info-value" id="wr-room-type">-</span>
+      </div>
+      <div class="wr-info-row">
+        <span class="wr-info-label">Bahis:</span>
+        <span class="wr-info-value" id="wr-room-bet">-</span>
+      </div>
+    </div>
+
+    <div class="wr-players">
+      <div class="wr-player-slot" id="wr-slot-host">
+        <div class="wr-player-avatar host-avatar">👑</div>
+        <div class="wr-player-name" id="wr-host-name">Bekleniyor...</div>
+        <div class="wr-ready-status" id="wr-host-ready"></div>
+      </div>
+      <div class="wr-vs">VS</div>
+      <div class="wr-player-slot" id="wr-slot-guest">
+        <div class="wr-player-avatar guest-avatar">?</div>
+        <div class="wr-player-name" id="wr-guest-name">Rakip bekleniyor...</div>
+        <div class="wr-ready-status" id="wr-guest-ready"></div>
+      </div>
+    </div>
+
+    <div class="setup-actions">
+      <button id="wr-leave" class="menu-btn secondary-btn">Ayrıl</button>
+      <button id="wr-ready" class="menu-btn primary-btn">Hazırım</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ NICKNAME MODAL ═════════════════════════════════════════ -->
+<div id="nickname-modal" class="settings-modal" style="display:none;">
+  <div class="sm-bg" id="nickname-backdrop"></div>
+  <div class="sm-panel">
+    <div class="sm-head">
+      <span class="sm-title">Takma Ad</span>
+      <button id="nickname-close-btn" class="icon-btn">✕</button>
+    </div>
+    <div class="sm-body" style="padding: 20px;">
+      <p class="sm-desc" style="margin-bottom: 12px;">Online oyunlarda görünecek adınız:</p>
+      <input type="text" id="nickname-input" class="rc-input" placeholder="Takma adınız..." maxlength="16" autocomplete="off">
+      <div style="margin-top: 16px; display: flex; gap: 10px;">
+        <button id="nickname-save" class="menu-btn primary-btn" style="flex:1;">Kaydet</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- ═══ GAME SCREEN ════════════════════════════════════════════ -->
 <div id="game-screen" class="screen" style="display:none;">
 
@@ -149,10 +307,16 @@
     <div class="board-container">
       <svg id="board-svg" xmlns="http://www.w3.org/2000/svg"></svg>
 
+      <!-- Doubling Cube display -->
+      <div class="doubling-cube-display" id="doubling-cube-display" style="display:none;">
+        <div class="dc-value" id="dc-value">1</div>
+      </div>
+
       <!-- Center strip: dice left, action buttons right -->
       <div class="board-center-strip">
         <div id="dice-animation-container" class="board-dice"></div>
         <div class="board-action-zone">
+          <button id="double-btn" class="board-action-btn double-btn-style" style="display:none">×2 Katla</button>
           <button id="roll-btn" class="board-action-btn roll-btn-style" disabled style="display:none">🎲 Zar At</button>
           <button id="undo-btn" class="board-circle-btn undo-circle-btn" style="display:none" title="Geri Al">↩</button>
           <button id="confirm-turn-btn" class="board-circle-btn confirm-circle-btn" style="display:none" title="Sırayı Geç">✓</button>
@@ -195,6 +359,9 @@
     <div class="gameover-trophy">🏆</div>
     <h2 id="gameover-title">Beyaz Kazandı!</h2>
     <p class="gameover-points"><span id="gameover-points">1 puan</span> kazanıldı</p>
+    <div class="gameover-coin-result" id="gameover-coin-result" style="display:none;">
+      <span id="gameover-coin-text"></span>
+    </div>
     <div class="gameover-buttons">
       <button id="gameover-new-game" class="menu-btn primary-btn">Yeni Oyun</button>
       <button id="gameover-menu"     class="menu-btn secondary-btn">Ana Menü</button>
@@ -211,6 +378,15 @@
       <button id="settings-close-btn" class="icon-btn">✕</button>
     </div>
     <div class="sm-body">
+      <!-- Nickname row -->
+      <div class="sm-row" id="sm-nickname-row">
+        <div class="sm-info">
+          <div class="sm-label">Takma Ad</div>
+          <div class="sm-desc" id="sm-nickname-val">Anonim</div>
+        </div>
+        <button id="sm-nickname-edit" class="icon-btn">✎</button>
+      </div>
+      <div class="sm-divider" id="sm-nickname-divider"></div>
       <!-- Sound toggle -->
       <div class="sm-row">
         <div class="sm-info">
@@ -266,6 +442,19 @@
   </div>
 </div>
 
+<!-- ═══ DOUBLE RESPONSE MODAL ══════════════════════════════════ -->
+<div id="double-modal" class="hit-confirm-modal" style="display:none;">
+  <div class="hcm-backdrop"></div>
+  <div class="hcm-dialog">
+    <div class="hcm-icon">⬛</div>
+    <p id="double-modal-text" class="hcm-text">Rakip bahsi ikiye katlamak istiyor!</p>
+    <div class="hcm-actions">
+      <button id="double-accept" class="hcm-btn hcm-hit-btn">Kabul Et</button>
+      <button id="double-decline" class="hcm-btn hcm-skip-btn">Reddet</button>
+    </div>
+  </div>
+</div>
+
 <!-- Scripts -->
 <script src="js/constants.js"></script>
 <script src="js/gameLogic.js"></script>
@@ -274,14 +463,22 @@
 <script src="js/ai.js"></script>
 <script src="js/sounds.js"></script>
 <script>
-  // socket.io yalnızca Node.js sunucusundan (port 3000) gelir; Live Server'da yoktur.
-  if (location.port === '3000') {
+  // Socket.io: load from CDN for GitHub Pages, from server for localhost
+  if (location.hostname === 'localhost' || location.hostname === '127.0.0.1') {
+    if (location.port === '3000') {
+      const s = document.createElement('script');
+      s.src = '/socket.io/socket.io.js';
+      s.onerror = () => { window._socketUnavailable = true; };
+      document.currentScript.parentNode.insertBefore(s, document.currentScript.nextSibling);
+    } else {
+      window._socketUnavailable = true;
+    }
+  } else {
+    // Production: load Socket.io from CDN
     const s = document.createElement('script');
-    s.src = '/socket.io/socket.io.js';
+    s.src = 'https://cdn.socket.io/4.7.4/socket.io.min.js';
     s.onerror = () => { window._socketUnavailable = true; };
     document.currentScript.parentNode.insertBefore(s, document.currentScript.nextSibling);
-  } else {
-    window._socketUnavailable = true;
   }
 </script>
 <script src="js/socket.js"></script>
