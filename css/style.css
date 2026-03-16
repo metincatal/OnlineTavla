@@ -808,6 +808,83 @@ html, body {
 .modal-no-btn:hover { color: var(--text); border-color: var(--border-md); }
 
 /* =============================================
+   HIT CONFIRM MODAL
+   ============================================= */
+
+.hit-confirm-modal {
+  position: fixed; inset: 0;
+  display: flex; align-items: center; justify-content: center;
+  z-index: 210;
+}
+.hcm-backdrop {
+  position: absolute; inset: 0;
+  background: rgba(44,26,14,0.5);
+  backdrop-filter: blur(3px);
+}
+.hcm-dialog {
+  position: relative; z-index: 1;
+  background: linear-gradient(145deg, #FAF5EC, #F0E8D8);
+  border: 2px solid #B08828;
+  border-radius: 18px;
+  padding: 24px 28px;
+  text-align: center;
+  max-width: 300px; width: 88%;
+  box-shadow: 0 8px 32px rgba(44,26,14,0.25), inset 0 1px 0 rgba(255,255,255,0.5);
+  animation: modalIn 0.22s cubic-bezier(.34,1.56,.64,1);
+}
+.hcm-icon {
+  font-size: 2rem;
+  margin-bottom: 8px;
+  filter: drop-shadow(0 1px 2px rgba(44,26,14,0.3));
+}
+.hcm-text {
+  font-size: 0.92rem;
+  font-weight: 600;
+  color: var(--text);
+  margin-bottom: 20px;
+  line-height: 1.5;
+}
+.hcm-actions {
+  display: flex; gap: 10px; justify-content: center;
+}
+.hcm-btn {
+  padding: 10px 28px;
+  border: none;
+  border-radius: 10px;
+  font-size: 0.9rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.18s;
+  letter-spacing: 0.02em;
+}
+.hcm-hit-btn {
+  background: linear-gradient(135deg, #C03020, #8B2A1A);
+  color: #FFF;
+  box-shadow: 0 3px 10px rgba(139,42,26,0.35);
+}
+.hcm-hit-btn:hover {
+  background: linear-gradient(135deg, #D04030, #A03020);
+  box-shadow: 0 4px 14px rgba(139,42,26,0.45);
+}
+.hcm-skip-btn {
+  background: linear-gradient(135deg, #D4C4A4, #B8A880);
+  color: var(--text);
+  box-shadow: 0 2px 8px rgba(44,26,14,0.15);
+}
+.hcm-skip-btn:hover {
+  background: linear-gradient(135deg, #C8B898, #A89870);
+  box-shadow: 0 3px 10px rgba(44,26,14,0.2);
+}
+
+/* Mobile compact */
+@media (max-height: 520px) and (orientation: landscape) {
+  .hcm-dialog { padding: 16px 20px; max-width: 260px; border-radius: 14px; }
+  .hcm-icon { font-size: 1.4rem; margin-bottom: 4px; }
+  .hcm-text { font-size: 0.82rem; margin-bottom: 14px; }
+  .hcm-btn { padding: 8px 22px; font-size: 0.82rem; }
+}
+
+/* =============================================
    PORTRAIT WARNING OVERLAY
    ============================================= */
 

@@ -10,6 +10,7 @@ class Game {
     this.bearOffCounts = { white: 0, black: 0 };
     this.moveHistory = [];          // undo stack
     this.confirmPending = false;    // waiting for player to confirm turn end
+    this._hitModalPending = false;  // waiting for hit-confirm modal
     this.playerNames = { white: 'Beyaz', black: 'Siyah' };
   }
 
@@ -63,6 +64,7 @@ class Game {
     this.bearOffCounts = { white: 0, black: 0 };
     this.moveHistory = [];
     this.confirmPending = false;
+    this._hitModalPending = false;
     this._hadChoice = false; // player made at least one chosen move this turn
     this._vurkacLockedPoint = null; // vur-kaç: point that hit in own home this turn
     this.state = {
@@ -166,6 +168,7 @@ class Game {
   handlePointClick(point) {
     if (this.state.phase !== PHASES.MOVING) return;
     if (this.confirmPending) return;
+    if (this._hitModalPending) return;
 
     const { currentPlayer, board, gameMode } = this.state;
     if (gameMode === GAME_MODES.ONLINE && !this.onlineGame.isMyTurn(currentPlayer)) return;
@@ -200,9 +203,10 @@ class Game {
 
   // ─── Drag-and-drop handler ────────────────────────────────────
 
-  handleDrop(from, to) {
+  async handleDrop(from, to) {
     if (this.state.phase !== PHASES.MOVING) return;
     if (this.confirmPending) return;
+    if (this._hitModalPending) return;
 
     const { currentPlayer, gameMode } = this.state;
     if (gameMode === GAME_MODES.ONLINE && !this.onlineGame.isMyTurn(currentPlayer)) return;
@@ -223,11 +227,66 @@ class Game {
     }
 
     // Multi-die sequence (ghost destination with combined dice)
-    const sequence = this._findMoveSequence(
+    const allSequences = this._findAllMoveSequences(
       from, to, [...this.state.board], [...this.state.remainingDice]
     );
-    if (sequence && sequence.length > 0) {
-      this._applyMoveSequence(sequence);
+
+    if (allSequences.length === 0) return;
+
+    // Single path → use directly
+    if (allSequences.length === 1) {
+      this._applyMoveSequence(allSequences[0]);
+      return;
+    }
+
+    // Multiple paths → check for intermediate hits
+    const isWhite = currentPlayer === PLAYERS.WHITE;
+    const board = this.state.board;
+    const hittingSeqs = [];
+    const nonHittingSeqs = [];
+
+    for (const seq of allSequences) {
+      const hitInfo = this._sequenceIntermediateHit(seq, board, isWhite);
+      if (hitInfo) hittingSeqs.push({ seq, hitPoint: hitInfo });
+      else nonHittingSeqs.push(seq);
+    }
+
+    // All same type → no choice needed
+    if (hittingSeqs.length === 0) {
+      this._applyMoveSequence(nonHittingSeqs[0]);
+      return;
+    }
+    if (nonHittingSeqs.length === 0) {
+      this._applyMoveSequence(hittingSeqs[0].seq);
+      return;
+    }
+
+    // Vur-kaç auto-skip: if the intermediate hit is in own home board
+    if (window.APP_SETTINGS && window.APP_SETTINGS.vurkac) {
+      const homeStart = isWhite ? 19 : 1;
+      const homeEnd   = isWhite ? 24 : 6;
+      const allInHome = hittingSeqs.every(
+        h => h.hitPoint >= homeStart && h.hitPoint <= homeEnd
+      );
+      if (allInHome) {
+        this._applyMoveSequence(nonHittingSeqs[0]);
+        return;
+      }
+    }
+
+    // Both types exist → show modal
+    const hitPoint = hittingSeqs[0].hitPoint;
+    this._hitModalPending = true;
+    const wantHit = await this.showHitConfirmModal(hitPoint);
+    this._hitModalPending = false;
+
+    // Verify game state didn't change while modal was open
+    if (this.state.phase !== PHASES.MOVING) return;
+
+    if (wantHit) {
+      this._applyMoveSequence(hittingSeqs[0].seq);
+    } else {
+      this._applyMoveSequence(nonHittingSeqs[0]);
     }
   }
 
@@ -260,6 +319,76 @@ class Game {
       }
     }
     return null;
+  }
+
+  _findAllMoveSequences(from, finalDest, board, dice) {
+    const results = [];
+    const player = this.state.currentPlayer;
+    const isWhite = player === PLAYERS.WHITE;
+    const barIndex = isWhite ? 0 : 25;
+
+    const recurse = (curFrom, curBoard, curDice, path) => {
+      for (const die of [...new Set(curDice)]) {
+        const hasBar = curBoard[barIndex] !== 0;
+        const movesForDie = getMovesForDie(curBoard, player, die, hasBar, isWhite)
+          .filter(m => m.from === curFrom);
+
+        for (const move of movesForDie) {
+          if (move.to === finalDest) {
+            results.push([...path, move]);
+          } else if (curDice.length > 1) {
+            const newBoard = applyMove(curBoard, move, player);
+            const newDice = getDiceAfterMove(curDice, die);
+            recurse(move.to, newBoard, newDice, [...path, move]);
+          }
+        }
+      }
+    };
+
+    recurse(from, board, dice, []);
+
+    // Deduplicate sequences with same move order
+    const seen = new Set();
+    return results.filter(seq => {
+      const key = seq.map(m => `${m.from}-${m.to}-${m.die}`).join('|');
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  }
+
+  _sequenceIntermediateHit(sequence, board, isWhite) {
+    let curBoard = [...board];
+    for (let i = 0; i < sequence.length - 1; i++) {
+      const move = sequence[i];
+      const opponentBlot = isWhite ? -1 : 1;
+      if (curBoard[move.to] === opponentBlot) return move.to;
+      curBoard = applyMove(curBoard, move, isWhite ? PLAYERS.WHITE : PLAYERS.BLACK);
+    }
+    return null;
+  }
+
+  showHitConfirmModal(hitPoint) {
+    return new Promise(resolve => {
+      const modal = document.getElementById('hit-confirm-modal');
+      const msgEl = document.getElementById('hit-confirm-text');
+      msgEl.textContent = `${hitPoint}. noktadaki rakip pulu kırmak ister misin?`;
+      modal.style.display = 'flex';
+
+      const hitBtn  = document.getElementById('hit-confirm-yes');
+      const skipBtn = document.getElementById('hit-confirm-no');
+
+      const cleanup = () => {
+        modal.style.display = 'none';
+        hitBtn.removeEventListener('click', onHit);
+        skipBtn.removeEventListener('click', onSkip);
+      };
+      const onHit  = () => { cleanup(); resolve(true); };
+      const onSkip = () => { cleanup(); resolve(false); };
+
+      hitBtn.addEventListener('click', onHit);
+      skipBtn.addEventListener('click', onSkip);
+    });
   }
 
   _applyMoveSequence(sequence) {
@@ -317,6 +446,7 @@ class Game {
 
   handlePieceHover(point) {
     if (this.state.phase !== PHASES.MOVING) return;
+    if (this._hitModalPending) return;
     const { currentPlayer, gameMode, board, remainingDice } = this.state;
     if (gameMode === GAME_MODES.AI && currentPlayer === PLAYERS.BLACK) return;
 
@@ -391,6 +521,7 @@ class Game {
     if (this.moveHistory.length === 0) return;
     if (this.state.phase === PHASES.GAMEOVER) return;
     if (this.state.gameMode === GAME_MODES.ONLINE) return;
+    if (this._hitModalPending) return;
 
     this.confirmPending = false;
     this._hideConfirmButton();
