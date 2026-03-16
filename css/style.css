@@ -3,7 +3,16 @@
    Natural warm theme
    ============================================= */
 
-*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+*, *::before, *::after {
+  box-sizing: border-box; margin: 0; padding: 0;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-touch-callout: none;
+}
+
+#game-screen, #game-screen * {
+  -webkit-user-select: none;
+  user-select: none;
+}
 
 :root {
   --bg:           #EEE8DC;

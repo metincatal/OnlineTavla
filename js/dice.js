@@ -301,6 +301,12 @@ class DiceManager {
     this._W            = 0;
     this._H            = 0;
     this._dpr          = 1;
+
+    // Recalculate canvas on visibility change (phone sleep/wake) and resize
+    document.addEventListener('visibilitychange', () => {
+      if (!document.hidden) setTimeout(() => this._recalcCanvas(), 100);
+    });
+    window.addEventListener('resize', () => this._recalcCanvas());
   }
 
   // ── Remove persistent canvas ──────────────────────────────
@@ -312,6 +318,41 @@ class DiceManager {
 
   _stopGlow() {
     // no-op — kept for compatibility
+  }
+
+  // ── Recalculate canvas dims + dice positions after resize/wake ──
+  _recalcCanvas() {
+    if (!this._canvas || !this._finalDice || this.rolling) return;
+    const boardContainer = this._canvas.parentElement;
+    if (!boardContainer) return;
+
+    const boardRect = boardContainer.getBoundingClientRect();
+    if (!boardRect.width || !boardRect.height) return;
+
+    const dpr = window.devicePixelRatio || 1;
+    this._canvas.width  = boardRect.width * dpr;
+    this._canvas.height = boardRect.height * dpr;
+    this._ctx = this._canvas.getContext('2d');
+    this._dpr = dpr;
+    this._W = boardRect.width;
+    this._H = boardRect.height;
+
+    // Recalculate dice target positions for new size
+    const htmlDieSize = window.innerHeight <= 420 ? 30 : 44;
+    const separation  = htmlDieSize * 1.4;
+    const barLeftX    = _getBarLeftX(boardContainer) || this._W * 0.433;
+    const boardLeftEdge = this._W * 0.04;
+    const leftHalfCX  = (boardLeftEdge + barLeftX) / 2;
+    const targetCY    = this._H * 0.50;
+
+    if (this._finalDice.length >= 2) {
+      this._finalDice[0].x = leftHalfCX - separation / 2;
+      this._finalDice[0].y = targetCY - 2;
+      this._finalDice[1].x = leftHalfCX + separation / 2;
+      this._finalDice[1].y = targetCY + 2;
+    }
+
+    this._redrawStatic();
   }
 
   // ── Compute frame count per physical die ──────────────────

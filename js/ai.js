@@ -6,22 +6,29 @@ class BackgammonAI {
     this.difficulty = difficulty;
   }
 
-  getBestMoves(board, player, dice) {
+  getBestMoves(board, player, dice, vurkacEnabled = false) {
     const expanded = expandDice(dice);
-    return this.findBestSequence(board, player, expanded, []);
+    return this.findBestSequence(board, player, expanded, [], vurkacEnabled, null);
   }
 
-  findBestSequence(board, player, remainingDice, movesSoFar) {
+  findBestSequence(board, player, remainingDice, movesSoFar, vurkacEnabled, lockedPoint) {
     if (remainingDice.length === 0) return movesSoFar;
 
-    const validMoves = generateValidMoves(board, player, remainingDice);
+    let validMoves = generateValidMoves(board, player, remainingDice);
+
+    // Vur-kaç: filter out moves from locked point
+    if (vurkacEnabled && lockedPoint !== null) {
+      validMoves = validMoves.filter(m => m.from !== lockedPoint);
+    }
+
     if (validMoves.length === 0) return movesSoFar;
 
     if (this.difficulty === AI_DIFFICULTY.EASY && Math.random() < 0.35) {
       const randomMove = validMoves[Math.floor(Math.random() * validMoves.length)];
       const newBoard = applyMove(board, randomMove, player);
       const remainingDiceAfter = getDiceAfterMove(remainingDice, randomMove.die);
-      return this.findBestSequence(newBoard, player, remainingDiceAfter, [...movesSoFar, randomMove]);
+      const newLocked = this._checkVurkacLock(vurkacEnabled, board, randomMove, player, lockedPoint);
+      return this.findBestSequence(newBoard, player, remainingDiceAfter, [...movesSoFar, randomMove], vurkacEnabled, newLocked);
     }
 
     let bestScore = -Infinity;
@@ -35,7 +42,8 @@ class BackgammonAI {
 
       let score;
       if (this.difficulty === AI_DIFFICULTY.HARD && remaining.length > 0) {
-        score = this.evaluateWithLookahead(newBoard, player, remaining);
+        score = this.evaluateWithLookahead(newBoard, player, remaining, vurkacEnabled,
+          this._checkVurkacLock(vurkacEnabled, board, move, player, lockedPoint));
       } else {
         score = this.evaluateBoard(newBoard, player);
       }
@@ -48,11 +56,27 @@ class BackgammonAI {
       }
     }
 
-    return this.findBestSequence(bestBoard, player, bestRemaining, [...movesSoFar, bestMove]);
+    const newLocked = this._checkVurkacLock(vurkacEnabled, board, bestMove, player, lockedPoint);
+    return this.findBestSequence(bestBoard, player, bestRemaining, [...movesSoFar, bestMove], vurkacEnabled, newLocked);
   }
 
-  evaluateWithLookahead(board, player, remainingDice) {
-    const moves = generateValidMoves(board, player, remainingDice);
+  _checkVurkacLock(vurkacEnabled, board, move, player, currentLocked) {
+    if (!vurkacEnabled) return currentLocked;
+    const isBlack = player === PLAYERS.BLACK;
+    const opponentBlot = isBlack ? 1 : -1;
+    if (board[move.to] === opponentBlot) {
+      const homeStart = isBlack ? 1 : 19;
+      const homeEnd   = isBlack ? 6 : 24;
+      if (move.to >= homeStart && move.to <= homeEnd) return move.to;
+    }
+    return currentLocked;
+  }
+
+  evaluateWithLookahead(board, player, remainingDice, vurkacEnabled = false, lockedPoint = null) {
+    let moves = generateValidMoves(board, player, remainingDice);
+    if (vurkacEnabled && lockedPoint !== null) {
+      moves = moves.filter(m => m.from !== lockedPoint);
+    }
     if (moves.length === 0) return this.evaluateBoard(board, player);
 
     let bestScore = -Infinity;
