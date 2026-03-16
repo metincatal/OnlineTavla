@@ -1,11 +1,11 @@
-// SVG Board Renderer
+// SVG Board Renderer — v2 (symmetric bear-off, narrow bar, 3D depth)
 
 class Board {
   constructor(svgId) {
     this.svg = document.getElementById(svgId);
     this.onPointClick  = null;
     this.onPieceHover  = null;
-    this.onDropMove    = null;   // callback(from, to) for drag-and-drop
+    this.onDropMove    = null;
 
     this._lastBoard    = null;
     this._highlightEls = [];
@@ -21,6 +21,13 @@ class Board {
     this._lastPointerY = 0;
     this._suppressNextClick = false;
     this._pointerId    = null;
+
+    // Layout derived constants
+    this._lOffX  = BOARD_MARGIN + INNER_PAD;                       // left bear-off X
+    this._ptsL   = this._lOffX + BEAR_OFF_WIDTH + 4;               // left points start
+    this._barX   = this._ptsL + 6 * POINT_WIDTH;                   // bar X
+    this._ptsR   = this._barX + BAR_WIDTH;                         // right points start
+    this._rOffX  = this._ptsR + 6 * POINT_WIDTH + 4;               // right bear-off X
 
     this.init();
     this._initDrag();
@@ -42,6 +49,18 @@ class Board {
 
     this.svg.appendChild(this.piecesGroup);
     this.svg.appendChild(this.highlightsGroup);
+
+    // Move panels into board-wrapper for aligned positioning
+    this._alignPanels();
+  }
+
+  _alignPanels() {
+    const container = this.svg.parentElement; // .board-container
+    if (!container) return;
+    const panelBlack = document.getElementById('panel-black');
+    const panelWhite = document.getElementById('panel-white');
+    if (panelBlack && panelBlack.parentElement !== container) container.appendChild(panelBlack);
+    if (panelWhite && panelWhite.parentElement !== container) container.appendChild(panelWhite);
   }
 
   /* ── SVG defs ─────────────────────────────────────────────────── */
@@ -62,29 +81,45 @@ class Board {
     this._stop(bg, '100%', '#080604');
     defs.appendChild(bg);
 
-    // Bar wood gradient (horizontal, dark walnut tones)
-    const bwg = this._linearGrad('barWoodGrad', '#2A1008', '#3E1A0C', '0%', '0%', '100%', '0%');
-    defs.appendChild(bwg);
-    // Hinge plate gradient (brass, light top → dark bottom)
-    const hpg = this._linearGrad('hingeGrad', '#D4A838', '#9A7210', '0%', '0%', '0%', '100%');
-    defs.appendChild(hpg);
-    // Hinge barrel gradient (gold, shiny left to right)
-    const hbg = this._linearGrad('hingeBarrelGrad', '#F0C840', '#C89018', '0%', '0%', '100%', '0%');
-    defs.appendChild(hbg);
-    // Screw head radial gradient
+    // Bar wood gradient
+    defs.appendChild(this._linearGrad('barWoodGrad', '#2A1008', '#3E1A0C', '0%','0%','100%','0%'));
+    // Hinge plate gradient (brass)
+    defs.appendChild(this._linearGrad('hingeGrad', '#D4A838', '#9A7210', '0%','0%','0%','100%'));
+    // Hinge barrel gradient
+    defs.appendChild(this._linearGrad('hingeBarrelGrad', '#F0C840', '#C89018', '0%','0%','100%','0%'));
+    // Screw head
     const sg = this._radialGrad('screwGrad', '35%', '32%', '65%');
     this._stop(sg, '0%',   '#F0D060');
     this._stop(sg, '100%', '#7A5A14');
     defs.appendChild(sg);
 
+    // Inner shadow gradients for 3D depth
+    const shT = this._linearGrad('shadowTop', 'rgba(0,0,0,0.22)', 'rgba(0,0,0,0)', '0%','0%','0%','100%');
+    defs.appendChild(shT);
+    const shB = this._linearGrad('shadowBot', 'rgba(0,0,0,0)', 'rgba(0,0,0,0.18)', '0%','0%','0%','100%');
+    defs.appendChild(shB);
+    const shL = this._linearGrad('shadowLeft', 'rgba(0,0,0,0.15)', 'rgba(0,0,0,0)', '0%','0%','100%','0%');
+    defs.appendChild(shL);
+    const shR = this._linearGrad('shadowRight', 'rgba(0,0,0,0)', 'rgba(0,0,0,0.12)', '0%','0%','100%','0%');
+    defs.appendChild(shR);
+
+    // Bear-off tray inner shadows (sunken effect)
+    const boShT = this._linearGrad('bearOffShadowTop', 'rgba(0,0,0,0.45)', 'rgba(0,0,0,0)', '0%','0%','0%','100%');
+    defs.appendChild(boShT);
+    const boShL = this._linearGrad('bearOffShadowLeft', 'rgba(0,0,0,0.3)', 'rgba(0,0,0,0)', '0%','0%','100%','0%');
+    defs.appendChild(boShL);
+    const boShR = this._linearGrad('bearOffShadowRight', 'rgba(0,0,0,0)', 'rgba(0,0,0,0.25)', '0%','0%','100%','0%');
+    defs.appendChild(boShR);
+
+    // Piece shadow filter
     const filter = document.createElementNS('http://www.w3.org/2000/svg', 'filter');
     filter.setAttribute('id', 'pieceShadow');
     filter.setAttribute('x', '-20%'); filter.setAttribute('y', '-20%');
     filter.setAttribute('width', '140%'); filter.setAttribute('height', '140%');
     const fds = document.createElementNS('http://www.w3.org/2000/svg', 'feDropShadow');
-    fds.setAttribute('dx', '1'); fds.setAttribute('dy', '2');
-    fds.setAttribute('stdDeviation', '2');
-    fds.setAttribute('flood-color', 'rgba(0,0,0,0.5)');
+    fds.setAttribute('dx', '1'); fds.setAttribute('dy', '2.5');
+    fds.setAttribute('stdDeviation', '2.5');
+    fds.setAttribute('flood-color', 'rgba(0,0,0,0.55)');
     filter.appendChild(fds);
     defs.appendChild(filter);
 
@@ -111,26 +146,68 @@ class Board {
     grad.appendChild(s);
   }
 
-  /* ── Board background ─────────────────────────────────────────── */
+  /* ── Board background — TWO separate halves joined by bar ────────── */
   drawBoard() {
-    this.svg.appendChild(this.rect(0, 0, SVG_WIDTH, SVG_HEIGHT, '#3A1A08'));
+    const ix = BOARD_MARGIN, iy = BOARD_MARGIN;
+    const ih = SVG_HEIGHT - BOARD_MARGIN * 2;
+    const barX = this._barX;
+    const barW = BAR_WIDTH;
+    const barR = barX + barW;
 
-    const inner = this.rect(BOARD_MARGIN, BOARD_MARGIN,
-      SVG_WIDTH - BOARD_MARGIN*2, SVG_HEIGHT - BOARD_MARGIN*2, 'url(#boardGrad)');
-    this.svg.appendChild(inner);
+    // Outer frame (dark walnut) with rounded corners
+    const frame = this.rect(0, 0, SVG_WIDTH, SVG_HEIGHT, '#3A1A08');
+    frame.setAttribute('rx', '8');
+    this.svg.appendChild(frame);
 
-    const ib = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
-    ib.setAttribute('x', BOARD_MARGIN + 3); ib.setAttribute('y', BOARD_MARGIN + 3);
-    ib.setAttribute('width', SVG_WIDTH - BOARD_MARGIN*2 - 6);
-    ib.setAttribute('height', SVG_HEIGHT - BOARD_MARGIN*2 - 6);
-    ib.setAttribute('fill', 'none');
-    ib.setAttribute('stroke', 'rgba(255,200,100,0.1)');
-    ib.setAttribute('stroke-width', '2');
-    ib.setAttribute('rx', '3');
-    this.svg.appendChild(ib);
+    // ── LEFT half playing surface ──
+    const lw = barX - ix;
+    const lSurf = this.rect(ix, iy, lw, ih, 'url(#boardGrad)');
+    lSurf.setAttribute('rx', '4');
+    this.svg.appendChild(lSurf);
+
+    const lBord = this.rect(ix + 2, iy + 2, lw - 4, ih - 4, 'none');
+    lBord.setAttribute('stroke', 'rgba(255,200,100,0.1)');
+    lBord.setAttribute('stroke-width', '2');
+    lBord.setAttribute('rx', '3');
+    this.svg.appendChild(lBord);
+
+    // ── RIGHT half playing surface ──
+    const rw = SVG_WIDTH - BOARD_MARGIN - barR;
+    const rSurf = this.rect(barR, iy, rw, ih, 'url(#boardGrad)');
+    rSurf.setAttribute('rx', '4');
+    this.svg.appendChild(rSurf);
+
+    const rBord = this.rect(barR + 2, iy + 2, rw - 4, ih - 4, 'none');
+    rBord.setAttribute('stroke', 'rgba(255,200,100,0.1)');
+    rBord.setAttribute('stroke-width', '2');
+    rBord.setAttribute('rx', '3');
+    this.svg.appendChild(rBord);
+
+    // ── 3D depth shadows for each half ──
+    const sh = 14;
+    // Left half
+    this.svg.appendChild(this.rect(ix, iy, lw, sh, 'url(#shadowTop)'));
+    this.svg.appendChild(this.rect(ix, iy + ih - sh, lw, sh, 'url(#shadowBot)'));
+    this.svg.appendChild(this.rect(ix, iy, sh, ih, 'url(#shadowLeft)'));
+    this.svg.appendChild(this.rect(ix + lw - sh, iy, sh, ih, 'url(#shadowRight)'));
+    // Right half
+    this.svg.appendChild(this.rect(barR, iy, rw, sh, 'url(#shadowTop)'));
+    this.svg.appendChild(this.rect(barR, iy + ih - sh, rw, sh, 'url(#shadowBot)'));
+    this.svg.appendChild(this.rect(barR, iy, sh, ih, 'url(#shadowLeft)'));
+    this.svg.appendChild(this.rect(barR + rw - sh, iy, sh, ih, 'url(#shadowRight)'));
+
+    // ── Dark edge rails (between frame and triangle bases) ──
+    const railH = 10;
+    const railColor = COLORS.barBg;
+    // Left half
+    this.svg.appendChild(this.rect(ix, iy, lw, railH, railColor));
+    this.svg.appendChild(this.rect(ix, iy + ih - railH, lw, railH, railColor));
+    // Right half
+    this.svg.appendChild(this.rect(barR, iy, rw, railH, railColor));
+    this.svg.appendChild(this.rect(barR, iy + ih - railH, rw, railH, railColor));
   }
 
-  /* ── 24 triangular points ─────────────────────────────────────── */
+  /* ── 24 triangular points with rounded tips ────────────────────── */
   drawPoints() {
     const g = this.createGroup('points');
     for (let i = 1; i <= 24; i++) {
@@ -138,56 +215,85 @@ class Board {
       const color = i % 2 === 1 ? COLORS.pointDark : COLORS.pointLight;
       const tri = this.drawTriangle(x, y, POINT_WIDTH, POINT_HEIGHT, isTop, color);
       tri.setAttribute('data-point', i);
-      tri.setAttribute('stroke', 'rgba(0,0,0,0.3)');
+      tri.setAttribute('stroke', 'rgba(0,0,0,0.25)');
       tri.setAttribute('stroke-width', '1');
+      tri.setAttribute('stroke-linejoin', 'round');
       tri.style.cursor = 'pointer';
       tri.addEventListener('click', () => this.handlePointClick(i));
       g.appendChild(tri);
-
     }
     this.svg.appendChild(g);
   }
 
-  /* ── Bar / spine with hinges ─────────────────────────────────── */
+  /* ── Bar / spine with hinges + fold line ───────────────────────── */
   drawBar() {
-    const barX = BOARD_MARGIN + 10 + 6 * POINT_WIDTH;
+    const barX = this._barX;
     const barY = BOARD_MARGIN;
     const barH = SVG_HEIGHT - BOARD_MARGIN * 2;
     const barW = BAR_WIDTH;
 
-    // Wood background
+    // Wood background — no rx, flush with frame top/bottom
     const wood = this.rect(barX, barY, barW, barH, 'url(#barWoodGrad)');
     this.svg.appendChild(wood);
 
     // Wood grain lines
-    for (let i = 1; i <= 5; i++) {
-      const gx = barX + (i / 6) * barW;
+    for (let i = 1; i <= 4; i++) {
+      const gx = barX + (i / 5) * barW;
       const gl = document.createElementNS('http://www.w3.org/2000/svg', 'line');
-      gl.setAttribute('x1', gx); gl.setAttribute('y1', barY + 5);
-      gl.setAttribute('x2', gx); gl.setAttribute('y2', barY + barH - 5);
+      gl.setAttribute('x1', gx); gl.setAttribute('y1', barY);
+      gl.setAttribute('x2', gx); gl.setAttribute('y2', barY + barH);
       gl.setAttribute('stroke', `rgba(0,0,0,${0.04 + (i % 2) * 0.03})`);
-      gl.setAttribute('stroke-width', '1.2');
+      gl.setAttribute('stroke-width', '1');
       gl.style.pointerEvents = 'none';
       this.svg.appendChild(gl);
     }
 
-    // Outer border
-    const border = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
-    border.setAttribute('x', barX); border.setAttribute('y', barY);
-    border.setAttribute('width', barW); border.setAttribute('height', barH);
-    border.setAttribute('fill', 'none');
-    border.setAttribute('stroke', 'rgba(200,140,50,0.45)');
-    border.setAttribute('stroke-width', '1.5');
-    border.style.pointerEvents = 'none';
-    this.svg.appendChild(border);
+    // ── Center crease — extends through entire board (outer frame included) ──
+    // This is where the two board halves' outer frames meet
+    const foldCX = barX + barW / 2;
 
-    // Center horizontal divider (subtle)
-    const mid = document.createElementNS('http://www.w3.org/2000/svg', 'line');
-    mid.setAttribute('x1', barX + 6); mid.setAttribute('y1', SVG_HEIGHT / 2);
-    mid.setAttribute('x2', barX + barW - 6); mid.setAttribute('y2', SVG_HEIGHT / 2);
-    mid.setAttribute('stroke', 'rgba(200,140,50,0.25)'); mid.setAttribute('stroke-width', '1');
-    mid.style.pointerEvents = 'none';
-    this.svg.appendChild(mid);
+    const creaseShadow = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+    creaseShadow.setAttribute('x1', foldCX - 1); creaseShadow.setAttribute('y1', 0);
+    creaseShadow.setAttribute('x2', foldCX - 1); creaseShadow.setAttribute('y2', SVG_HEIGHT);
+    creaseShadow.setAttribute('stroke', 'rgba(0,0,0,0.5)');
+    creaseShadow.setAttribute('stroke-width', '1.5');
+    creaseShadow.style.pointerEvents = 'none';
+    this.svg.appendChild(creaseShadow);
+
+    const creaseHighlight = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+    creaseHighlight.setAttribute('x1', foldCX + 1); creaseHighlight.setAttribute('y1', 0);
+    creaseHighlight.setAttribute('x2', foldCX + 1); creaseHighlight.setAttribute('y2', SVG_HEIGHT);
+    creaseHighlight.setAttribute('stroke', 'rgba(255,180,80,0.2)');
+    creaseHighlight.setAttribute('stroke-width', '1');
+    creaseHighlight.style.pointerEvents = 'none';
+    this.svg.appendChild(creaseHighlight);
+
+    // ── Bar edge lines — connect bar edges to dark rails ──
+    // These show each half's inner frame terminating at the bar
+    const railH = 10;
+    const edgeColor = 'rgba(0,0,0,0.3)';
+    const edgeHi    = 'rgba(255,180,80,0.12)';
+    const iy = BOARD_MARGIN, ih = SVG_HEIGHT - BOARD_MARGIN * 2;
+
+    // Left bar edge → rails
+    for (const [y1, y2] of [[iy, iy + railH], [iy + ih - railH, iy + ih]]) {
+      const el = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+      el.setAttribute('x1', barX); el.setAttribute('y1', y1);
+      el.setAttribute('x2', barX); el.setAttribute('y2', y2);
+      el.setAttribute('stroke', edgeColor); el.setAttribute('stroke-width', '1.5');
+      el.style.pointerEvents = 'none';
+      this.svg.appendChild(el);
+    }
+
+    // Right bar edge → rails
+    for (const [y1, y2] of [[iy, iy + railH], [iy + ih - railH, iy + ih]]) {
+      const el = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+      el.setAttribute('x1', barX + barW); el.setAttribute('y1', y1);
+      el.setAttribute('x2', barX + barW); el.setAttribute('y2', y2);
+      el.setAttribute('stroke', edgeColor); el.setAttribute('stroke-width', '1.5');
+      el.style.pointerEvents = 'none';
+      this.svg.appendChild(el);
+    }
 
     // Two hinges at ~22% and ~78% of bar height
     this._drawHinge(barX, barW, barY + barH * 0.22);
@@ -208,13 +314,12 @@ class Board {
   }
 
   _drawHinge(barX, barW, centerY) {
-    const plateW = barW - 8;
-    const plateH = 50;
-    const plateX = barX + 4;
-    const plateCX = barX + barW / 2;
+    const plateW = barW - 6;
+    const plateH = 38;
+    const plateX = barX + 3;
 
     // Drop shadow
-    const shadow = this.rect(plateX + 2, centerY - plateH / 2 + 3, plateW, plateH, 'rgba(0,0,0,0.45)');
+    const shadow = this.rect(plateX + 2, centerY - plateH / 2 + 2, plateW, plateH, 'rgba(0,0,0,0.4)');
     shadow.setAttribute('rx', '4'); shadow.style.pointerEvents = 'none';
     this.svg.appendChild(shadow);
 
@@ -224,72 +329,104 @@ class Board {
     this.svg.appendChild(plate);
 
     // Center barrel (pivot cylinder)
-    const bW = 20; const bH = plateH + 10;
+    const plateCX = barX + barW / 2;
+    const bW = 14; const bH = plateH + 8;
     const barrel = this.rect(plateCX - bW / 2, centerY - bH / 2, bW, bH, 'url(#hingeBarrelGrad)');
-    barrel.setAttribute('rx', '5');
+    barrel.setAttribute('rx', '4');
     barrel.setAttribute('class', 'hinge-barrel');
     barrel.style.pointerEvents = 'none';
     this.svg.appendChild(barrel);
 
     // Barrel knuckle lines
-    for (let i = 0; i < 4; i++) {
-      const ky = centerY - bH / 2 + 7 + i * (bH - 14) / 3;
+    for (let i = 0; i < 3; i++) {
+      const ky = centerY - bH / 2 + 6 + i * (bH - 12) / 2;
       const kl = document.createElementNS('http://www.w3.org/2000/svg', 'line');
-      kl.setAttribute('x1', plateCX - bW / 2 + 3); kl.setAttribute('y1', ky);
-      kl.setAttribute('x2', plateCX + bW / 2 - 3); kl.setAttribute('y2', ky);
+      kl.setAttribute('x1', plateCX - bW / 2 + 2); kl.setAttribute('y1', ky);
+      kl.setAttribute('x2', plateCX + bW / 2 - 2); kl.setAttribute('y2', ky);
       kl.setAttribute('stroke', 'rgba(255,210,80,0.45)'); kl.setAttribute('stroke-width', '1');
       kl.style.pointerEvents = 'none';
       this.svg.appendChild(kl);
     }
 
-    // 4 screws
-    const sx1 = plateX + 13, sx2 = plateX + plateW - 13;
-    const sy1 = centerY - 15,  sy2 = centerY + 15;
+    // 4 screws (smaller, positioned for narrow plate)
+    const sx1 = plateX + 10, sx2 = plateX + plateW - 10;
+    const sy1 = centerY - 11, sy2 = centerY + 11;
     for (const [sx, sy] of [[sx1,sy1],[sx2,sy1],[sx1,sy2],[sx2,sy2]]) {
-      const screw = this.circle(sx, sy, 5, 'url(#screwGrad)', '#8B6A20', 0.8);
+      const screw = this.circle(sx, sy, 4, 'url(#screwGrad)', '#8B6A20', 0.7);
       screw.style.pointerEvents = 'none';
       this.svg.appendChild(screw);
       const slot = document.createElementNS('http://www.w3.org/2000/svg', 'line');
-      slot.setAttribute('x1', sx - 3.5); slot.setAttribute('y1', sy);
-      slot.setAttribute('x2', sx + 3.5); slot.setAttribute('y2', sy);
-      slot.setAttribute('stroke', '#6A5010'); slot.setAttribute('stroke-width', '1.8');
+      slot.setAttribute('x1', sx - 2.5); slot.setAttribute('y1', sy);
+      slot.setAttribute('x2', sx + 2.5); slot.setAttribute('y2', sy);
+      slot.setAttribute('stroke', '#6A5010'); slot.setAttribute('stroke-width', '1.5');
       slot.style.pointerEvents = 'none';
       this.svg.appendChild(slot);
     }
 
-    // Top shine highlight on plate
-    const shine = this.rect(plateX + 5, centerY - plateH / 2 + 2, plateW - 10, 3, 'rgba(255,240,150,0.4)');
+    // Top shine
+    const shine = this.rect(plateX + 4, centerY - plateH / 2 + 2, plateW - 8, 2.5, 'rgba(255,240,150,0.35)');
     shine.setAttribute('rx', '2'); shine.style.pointerEvents = 'none';
     this.svg.appendChild(shine);
   }
 
-  /* ── Bear-off tray ────────────────────────────────────────────── */
+  /* ── Symmetric Bear-off trays (left + right) — single piece, flush with frame ── */
   drawBearOffAreas() {
-    const offX = BOARD_MARGIN + 10 + 6*POINT_WIDTH + BAR_WIDTH + 6*POINT_WIDTH + 8;
-    const offW  = SVG_WIDTH - BOARD_MARGIN - offX - 4;
-    const halfH = SVG_HEIGHT/2 - BOARD_MARGIN;
+    const iy = BOARD_MARGIN;
+    const ih = SVG_HEIGHT - BOARD_MARGIN * 2;
 
-    // White off (top) — drop target dest=25  [White home = points 19-24 = TOP]
-    const wRect = this.rect(offX, BOARD_MARGIN, offW, halfH - 2, '#120600');
-    wRect.setAttribute('rx','4'); wRect.setAttribute('stroke','rgba(180,100,30,0.4)');
-    wRect.setAttribute('stroke-width','1.5');
-    wRect.setAttribute('data-dest', '25');
-    this.svg.appendChild(wRect);
-    const wLabel = this.text(offX + offW/2, BOARD_MARGIN + 12, 'OFF', 'rgba(220,160,60,0.55)', 10);
-    wLabel.style.pointerEvents = 'none';
-    this.svg.appendChild(wLabel);
+    // Tray spans from frame edge to just before triangles — no gap
+    const lx = BOARD_MARGIN;
+    const lw = this._ptsL - BOARD_MARGIN - 2;
+    const rx = this._rOffX - 2;
+    const rw = SVG_WIDTH - BOARD_MARGIN - rx;
 
-    // Black off (bottom) — drop target dest=0  [Black home = points 1-6 = BOTTOM]
-    const bRect = this.rect(offX, SVG_HEIGHT/2 + 2, offW, halfH - 2, '#120600');
-    bRect.setAttribute('rx','4'); bRect.setAttribute('stroke','rgba(180,100,30,0.4)');
-    bRect.setAttribute('stroke-width','1.5');
-    bRect.setAttribute('data-dest', '0');
-    this.svg.appendChild(bRect);
-    const bLabel = this.text(offX + offW/2, SVG_HEIGHT - BOARD_MARGIN - 10, 'OFF', 'rgba(220,160,60,0.55)', 10);
-    bLabel.style.pointerEvents = 'none';
-    this.svg.appendChild(bLabel);
+    const _makeTray = (x, y, w, h, dest) => {
+      // Outer recess shadow
+      const recess = this.rect(x - 1, y, w + 1, h, 'rgba(0,0,0,0.35)');
+      recess.setAttribute('rx', '4');
+      recess.style.pointerEvents = 'none';
+      this.svg.appendChild(recess);
 
-    this._offX = offX; this._offW = offW;
+      // Main tray — single continuous piece
+      const tray = this.rect(x, y, w, h, '#0E0600');
+      tray.setAttribute('rx', '4');
+      tray.setAttribute('stroke', 'rgba(140,80,20,0.25)');
+      tray.setAttribute('stroke-width', '1');
+      tray.setAttribute('data-dest', String(dest));
+      tray.style.cursor = 'pointer';
+      tray.addEventListener('click', () => this.handlePointClick(dest));
+      this.svg.appendChild(tray);
+
+      // Inner shadow — top edge (sunken effect)
+      const shTop = this.rect(x + 2, y + 2, w - 4, 12, 'url(#bearOffShadowTop)');
+      shTop.setAttribute('rx', '3');
+      shTop.style.pointerEvents = 'none';
+      this.svg.appendChild(shTop);
+
+      // Inner shadow — left edge
+      const shLeft = this.rect(x + 2, y + 2, 5, h - 4, 'url(#bearOffShadowLeft)');
+      shLeft.setAttribute('rx', '2');
+      shLeft.style.pointerEvents = 'none';
+      this.svg.appendChild(shLeft);
+
+      // Inner shadow — right edge
+      const shRight = this.rect(x + w - 7, y + 2, 5, h - 4, 'url(#bearOffShadowRight)');
+      shRight.setAttribute('rx', '2');
+      shRight.style.pointerEvents = 'none';
+      this.svg.appendChild(shRight);
+
+      // Bottom highlight
+      const hlBot = this.rect(x + 5, y + h - 5, w - 10, 3, 'rgba(160,110,50,0.1)');
+      hlBot.setAttribute('rx', '2');
+      hlBot.style.pointerEvents = 'none';
+      this.svg.appendChild(hlBot);
+    };
+
+    // LEFT bear-off (Black — dest 0) — single full-height tray
+    _makeTray(lx, iy, lw, ih, 0);
+
+    // RIGHT bear-off (White — dest 25) — single full-height tray
+    _makeTray(rx, iy, rw, ih, 25);
   }
 
   /* ── Main render ─────────────────────────────────────────────── */
@@ -333,7 +470,6 @@ class Board {
           piece.style.cursor = 'pointer';
           piece.addEventListener('click', () => this.handlePointClick(i));
 
-          // Hover events on top piece
           if (j === absCount - 1) {
             piece.addEventListener('mouseenter', () => { if (!this._dragging) this._onHover(i); });
             piece.addEventListener('mouseleave', () => { if (!this._dragging) this.clearHoverHighlights(); });
@@ -341,13 +477,12 @@ class Board {
 
           this.piecesGroup.appendChild(piece);
 
-          // Inner highlight ring on every piece
+          // Inner highlight ring
           const ring = this.circle(cx, pieceY, PIECE_RADIUS - 11,
             'none', isWhite ? 'rgba(255,255,255,0.5)' : 'rgba(255,255,255,0.15)', 1);
           ring.style.pointerEvents = 'none';
           this.piecesGroup.appendChild(ring);
         }
-        // No count badge — pieces show their natural color at all depths
       }
     }
   }
@@ -360,23 +495,23 @@ class Board {
   }
 
   drawBarPieces(count, playerColor) {
-    const barCX  = BOARD_MARGIN + 10 + 6 * POINT_WIDTH + BAR_WIDTH / 2;
+    const barCX  = this._barX + BAR_WIDTH / 2;
     const isBlack = playerColor === 'black';
     const fill    = isBlack ? 'url(#bpGrad)' : 'url(#wpGrad)';
     const stroke  = isBlack ? '#555' : '#CCC';
     const pointIdx = isBlack ? 25 : 0;
 
-    const halfBarH = (SVG_HEIGHT/2 - BOARD_MARGIN) * 0.8;
+    const halfBarH = (SVG_HEIGHT / 2 - BOARD_MARGIN) * 0.8;
     const n = Math.min(count, 4);
-    const spacing = n > 1 ? Math.min(PIECE_RADIUS*2-4, halfBarH / (n-1)) : 0;
+    const spacing = n > 1 ? Math.min(PIECE_RADIUS * 2 - 4, halfBarH / (n - 1)) : 0;
     const startY = isBlack
-      ? BOARD_MARGIN + (SVG_HEIGHT/2 - BOARD_MARGIN)/2 - (n-1)*spacing/2
-      : SVG_HEIGHT/2 + (SVG_HEIGHT/2 - BOARD_MARGIN)/2 - (n-1)*spacing/2;
+      ? BOARD_MARGIN + (SVG_HEIGHT / 2 - BOARD_MARGIN) / 2 - (n - 1) * spacing / 2
+      : SVG_HEIGHT / 2 + (SVG_HEIGHT / 2 - BOARD_MARGIN) / 2 - (n - 1) * spacing / 2;
 
     for (let j = 0; j < n; j++) {
       const cy = startY + j * spacing;
       const piece = this.circle(barCX, cy, PIECE_RADIUS - 2, fill, stroke, 1.5);
-      piece.setAttribute('filter','url(#pieceShadow)');
+      piece.setAttribute('filter', 'url(#pieceShadow)');
       piece.setAttribute('data-point', pointIdx);
       piece.style.cursor = 'pointer';
       piece.addEventListener('click', () => this.handlePointClick(pointIdx));
@@ -393,16 +528,14 @@ class Board {
     }
 
     if (count > 0) {
-      const pillY = isBlack
-        ? startY - PIECE_RADIUS - 8
-        : startY - PIECE_RADIUS - 8;
+      const pillY = startY - PIECE_RADIUS - 8;
       const pill = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
-      pill.setAttribute('x', barCX - 16); pill.setAttribute('y', pillY - 9);
-      pill.setAttribute('width', 32); pill.setAttribute('height', 17);
+      pill.setAttribute('x', barCX - 14); pill.setAttribute('y', pillY - 8);
+      pill.setAttribute('width', 28); pill.setAttribute('height', 16);
       pill.setAttribute('rx', 8); pill.setAttribute('fill', '#FFCC00');
       pill.style.pointerEvents = 'none';
       this.piecesGroup.appendChild(pill);
-      const label = this.text(barCX, pillY, `×${count}`, '#000', 11, true);
+      const label = this.text(barCX, pillY, `×${count}`, '#000', 10, true);
       label.style.pointerEvents = 'none';
       this.piecesGroup.appendChild(label);
     }
@@ -419,17 +552,22 @@ class Board {
 
     const fill   = isWhite ? 'url(#wpGrad)' : 'url(#bpGrad)';
     const stroke = isWhite ? '#CCCCCC'       : '#555555';
-    const offCX  = (this._offX || 1082) + (this._offW || 60) / 2;
+    const rTrayX = this._rOffX - 2;
+    const rTrayW = SVG_WIDTH - BOARD_MARGIN - rTrayX;
+    const rOffCX = rTrayX + rTrayW / 2;
+    const lOffCX = BOARD_MARGIN + (this._ptsL - BOARD_MARGIN - 2) / 2;
 
     for (const { to, diceSum } of destinations) {
       let cx, cy;
 
       if (to === 25) {
-        cx = offCX;
-        cy = BOARD_MARGIN + (SVG_HEIGHT/2 - BOARD_MARGIN) * 0.5;
+        // White bear-off → right side
+        cx = rOffCX;
+        cy = BOARD_MARGIN + (SVG_HEIGHT / 2 - BOARD_MARGIN) * 0.5;
       } else if (to === 0) {
-        cx = offCX;
-        cy = SVG_HEIGHT/2 + (SVG_HEIGHT/2 - BOARD_MARGIN) * 0.5;
+        // Black bear-off → left side
+        cx = lOffCX;
+        cy = SVG_HEIGHT / 2 + (SVG_HEIGHT / 2 - BOARD_MARGIN) * 0.5;
       } else {
         const { x, y, isTop } = this.getPointPosition(to);
         cx = x + POINT_WIDTH / 2;
@@ -440,14 +578,12 @@ class Board {
           : y - PIECE_RADIUS - existingCount * spacing;
       }
 
-      // Ghost piece
       const ghost = this.circle(cx, cy, PIECE_RADIUS - 2, fill, stroke, 1.5);
       ghost.setAttribute('opacity', '0.38');
       ghost.style.pointerEvents = 'none';
       this.highlightsGroup.appendChild(ghost);
       this._highlightEls.push(ghost);
 
-      // Die sum label centered in ghost
       const labelColor = isWhite ? '#222' : '#EEE';
       const label = this.text(cx, cy, String(diceSum), labelColor, 13, true);
       label.style.pointerEvents = 'none';
@@ -473,7 +609,6 @@ class Board {
 
   _onPointerDown(e) {
     if (this._dragPending || this._dragging) return;
-    // Only primary pointer (mouse left button or first touch)
     if (e.button !== undefined && e.button !== 0) return;
 
     const fromPoint = this._getPointFromElement(e.target);
@@ -487,25 +622,21 @@ class Board {
     this._lastPointerY = e.clientY;
     this._pointerId = e.pointerId;
 
-    // Capture pointer so we keep receiving events even when finger moves off element
     try { e.target.setPointerCapture(e.pointerId); } catch (_) {}
   }
 
   _onPointerMove(e) {
     if (!this._dragPending || e.pointerId !== this._pointerId) return;
 
-    // Always track last position for drop detection
     this._lastPointerX = e.clientX;
     this._lastPointerY = e.clientY;
 
     const dx = e.clientX - this._dragStartX;
     const dy = e.clientY - this._dragStartY;
 
-    if (!this._dragging && Math.sqrt(dx*dx + dy*dy) > 8) {
+    if (!this._dragging && Math.sqrt(dx * dx + dy * dy) > 8) {
       this._dragging = true;
-      // Show valid destinations
       if (this.onPieceHover) this.onPieceHover(this._dragFrom);
-      // Create ghost piece at current position
       const svgPt = this._screenToSVG(e.clientX, e.clientY);
       this._createGhost(svgPt.x, svgPt.y);
     }
@@ -538,11 +669,9 @@ class Board {
       this._suppressNextClick = true;
       setTimeout(() => { this._suppressNextClick = false; }, 150);
 
-      // Use last tracked position (clientX/Y may be 0 on some mobile browsers at pointerup)
       const cx = e.clientX || this._lastPointerX;
       const cy = e.clientY || this._lastPointerY;
 
-      // Find drop target — temporarily hide ghost so elementFromPoint sees what's underneath
       const el = document.elementFromPoint(cx, cy);
       const destStr = this._findAttr(el, ['data-dest', 'data-point']);
       if (destStr !== null && this.onDropMove) {
@@ -597,10 +726,9 @@ class Board {
     if (point === null || point === undefined) return;
     let h;
     if (point === 0 || point === 25) {
-      const barX = BOARD_MARGIN + 10 + 6 * POINT_WIDTH;
-      const barY = point === 25 ? BOARD_MARGIN : SVG_HEIGHT/2;
-      const barH = SVG_HEIGHT/2 - BOARD_MARGIN;
-      h = this.rect(barX, barY, BAR_WIDTH, barH, color);
+      const barY = point === 25 ? BOARD_MARGIN : SVG_HEIGHT / 2;
+      const barH = SVG_HEIGHT / 2 - BOARD_MARGIN;
+      h = this.rect(this._barX, barY, BAR_WIDTH, barH, color);
       h.setAttribute('opacity', '0.4');
     } else {
       const { x, y, isTop } = this.getPointPosition(point);
@@ -612,62 +740,57 @@ class Board {
     setTimeout(() => { if (h.parentNode) h.parentNode.removeChild(h); }, 450);
   }
 
-  /* ── Bear-off: chip side-view ────────────────────────────────── */
+  /* ── Bear-off: chip side-view on BOTH sides ────────────────────── */
   renderBearOff(bearOffCounts) {
     if (!bearOffCounts) return;
     const { white, black } = bearOffCounts;
-    const offX = this._offX || 1082;
-    const offW = this._offW || 60;
-    const chipW = offW - 14;
     const chipH = 10;
     const chipGap = 3;
-    const chipX = offX + 7;
 
-    // White off — stack from top down (White home = TOP, off area = TOP)
+    // Tray centers (matching drawBearOffAreas flush layout)
+    const lTrayCX = BOARD_MARGIN + (this._ptsL - BOARD_MARGIN - 2) / 2;
+    const rTrayX  = this._rOffX - 2;
+    const rTrayW  = SVG_WIDTH - BOARD_MARGIN - rTrayX;
+    const rTrayCX = rTrayX + rTrayW / 2;
+    const chipW   = BEAR_OFF_WIDTH - 10;
+
+    // ── Right side: White borne-off pieces ──
+    const rChipX = rTrayCX - chipW / 2;
     const wTop = BOARD_MARGIN + 22;
     for (let i = 0; i < Math.min(white, 15); i++) {
       const cy = wTop + i * (chipH + chipGap);
-      const chip = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
-      chip.setAttribute('x', chipX); chip.setAttribute('y', cy);
-      chip.setAttribute('width', chipW); chip.setAttribute('height', chipH);
-      chip.setAttribute('rx', '3'); chip.setAttribute('fill', '#DEDEDE');
+      const chip = this.rect(rChipX, cy, chipW, chipH, '#DEDEDE');
+      chip.setAttribute('rx', '3');
       chip.setAttribute('stroke', '#AAAAAA'); chip.setAttribute('stroke-width', '0.8');
       chip.style.pointerEvents = 'none';
       this.piecesGroup.appendChild(chip);
-      const shine = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
-      shine.setAttribute('x', chipX+2); shine.setAttribute('y', cy+1);
-      shine.setAttribute('width', chipW-4); shine.setAttribute('height', 2);
-      shine.setAttribute('rx', '1'); shine.setAttribute('fill', 'rgba(255,255,255,0.7)');
-      shine.style.pointerEvents = 'none';
+      const shine = this.rect(rChipX + 2, cy + 1, chipW - 4, 2, 'rgba(255,255,255,0.7)');
+      shine.setAttribute('rx', '1'); shine.style.pointerEvents = 'none';
       this.piecesGroup.appendChild(shine);
     }
     if (white > 0) {
-      const t = this.text(offX + offW/2, SVG_HEIGHT/2 - 12, `${white}`,
+      const t = this.text(rTrayCX, SVG_HEIGHT / 2 - 10, `${white}`,
         'rgba(255,220,150,0.85)', 11, true);
       t.style.pointerEvents = 'none';
       this.piecesGroup.appendChild(t);
     }
 
-    // Black off — stack from bottom up (Black home = BOTTOM, off area = BOTTOM)
-    const bBottom = SVG_HEIGHT - BOARD_MARGIN - 22;
+    // ── Left side: Black borne-off pieces ──
+    const lChipX = lTrayCX - chipW / 2;
+    const bTop = BOARD_MARGIN + 22;
     for (let i = 0; i < Math.min(black, 15); i++) {
-      const cy = bBottom - i * (chipH + chipGap);
-      const chip = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
-      chip.setAttribute('x', chipX); chip.setAttribute('y', cy);
-      chip.setAttribute('width', chipW); chip.setAttribute('height', chipH);
-      chip.setAttribute('rx', '3'); chip.setAttribute('fill', '#282828');
+      const cy = bTop + i * (chipH + chipGap);
+      const chip = this.rect(lChipX, cy, chipW, chipH, '#282828');
+      chip.setAttribute('rx', '3');
       chip.setAttribute('stroke', '#555555'); chip.setAttribute('stroke-width', '0.8');
       chip.style.pointerEvents = 'none';
       this.piecesGroup.appendChild(chip);
-      const shine = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
-      shine.setAttribute('x', chipX+2); shine.setAttribute('y', cy+1);
-      shine.setAttribute('width', chipW-4); shine.setAttribute('height', 2);
-      shine.setAttribute('rx', '1'); shine.setAttribute('fill', 'rgba(255,255,255,0.12)');
-      shine.style.pointerEvents = 'none';
+      const shine = this.rect(lChipX + 2, cy + 1, chipW - 4, 2, 'rgba(255,255,255,0.12)');
+      shine.setAttribute('rx', '1'); shine.style.pointerEvents = 'none';
       this.piecesGroup.appendChild(shine);
     }
     if (black > 0) {
-      const t = this.text(offX + offW/2, SVG_HEIGHT/2 + 16, `${black}`,
+      const t = this.text(lTrayCX, SVG_HEIGHT / 2 - 10, `${black}`,
         'rgba(255,220,150,0.85)', 11, true);
       t.style.pointerEvents = 'none';
       this.piecesGroup.appendChild(t);
@@ -685,8 +808,8 @@ class Board {
 
   /* ── Geometry helpers ────────────────────────────────────────── */
   getPointPosition(point) {
-    const leftStart  = BOARD_MARGIN + 10;
-    const rightStart = BOARD_MARGIN + 10 + 6 * POINT_WIDTH + BAR_WIDTH;
+    const leftStart  = this._ptsL;
+    const rightStart = this._ptsR;
     const topY    = BOARD_MARGIN + 10;
     const bottomY = SVG_HEIGHT - BOARD_MARGIN - 10;
 
@@ -702,13 +825,29 @@ class Board {
   }
 
   drawTriangle(x, y, width, height, pointDown, fill) {
-    const poly = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
-    const pts = pointDown
-      ? `${x},${y} ${x+width},${y} ${x+width/2},${y+height}`
-      : `${x},${y} ${x+width},${y} ${x+width/2},${y-height}`;
-    poly.setAttribute('points', pts);
-    poly.setAttribute('fill', fill);
-    return poly;
+    const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    const cx = x + width / 2;
+    const tr = TIP_ROUND;
+    const inset = tr * 1.2;
+
+    if (pointDown) {
+      const tipY = y + height;
+      path.setAttribute('d',
+        `M ${x},${y} L ${x + width},${y} ` +
+        `L ${cx + tr},${tipY - inset} ` +
+        `Q ${cx},${tipY} ${cx - tr},${tipY - inset} Z`
+      );
+    } else {
+      const tipY = y - height;
+      path.setAttribute('d',
+        `M ${x},${y} L ${x + width},${y} ` +
+        `L ${cx + tr},${tipY + inset} ` +
+        `Q ${cx},${tipY} ${cx - tr},${tipY + inset} Z`
+      );
+    }
+
+    path.setAttribute('fill', fill);
+    return path;
   }
 
   /* ── SVG element factories ────────────────────────────────────── */
@@ -719,25 +858,25 @@ class Board {
   }
   rect(x, y, w, h, fill) {
     const r = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
-    r.setAttribute('x',x); r.setAttribute('y',y);
-    r.setAttribute('width',w); r.setAttribute('height',h);
-    r.setAttribute('fill',fill);
+    r.setAttribute('x', x); r.setAttribute('y', y);
+    r.setAttribute('width', w); r.setAttribute('height', h);
+    r.setAttribute('fill', fill);
     return r;
   }
   circle(cx, cy, r, fill, stroke, sw) {
     const c = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-    c.setAttribute('cx',cx); c.setAttribute('cy',cy); c.setAttribute('r',r);
-    c.setAttribute('fill',fill);
-    if (stroke) c.setAttribute('stroke',stroke);
-    if (sw)     c.setAttribute('stroke-width',sw);
+    c.setAttribute('cx', cx); c.setAttribute('cy', cy); c.setAttribute('r', r);
+    c.setAttribute('fill', fill);
+    if (stroke) c.setAttribute('stroke', stroke);
+    if (sw)     c.setAttribute('stroke-width', sw);
     return c;
   }
   text(x, y, content, fill, fontSize, bold) {
     const t = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-    t.setAttribute('x',x); t.setAttribute('y',y);
-    t.setAttribute('fill',fill); t.setAttribute('font-size',fontSize||14);
-    t.setAttribute('text-anchor','middle'); t.setAttribute('dominant-baseline','middle');
-    if (bold) t.setAttribute('font-weight','bold');
+    t.setAttribute('x', x); t.setAttribute('y', y);
+    t.setAttribute('fill', fill); t.setAttribute('font-size', fontSize || 14);
+    t.setAttribute('text-anchor', 'middle'); t.setAttribute('dominant-baseline', 'middle');
+    if (bold) t.setAttribute('font-weight', 'bold');
     t.textContent = content;
     return t;
   }

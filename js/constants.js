@@ -35,10 +35,13 @@ const INITIAL_BOARD = [
 const SVG_WIDTH = 1200;
 const SVG_HEIGHT = 750;
 const BOARD_MARGIN = 30;
+const INNER_PAD = 7;
+const BEAR_OFF_WIDTH = 54;
 const POINT_WIDTH = 80;
 const POINT_HEIGHT = 280;
 const PIECE_RADIUS = 32;
-const BAR_WIDTH = 80;
+const BAR_WIDTH = 50;
+const TIP_ROUND = 7;
 
 // Colors — natural warm palette
 const COLORS = {
