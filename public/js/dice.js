@@ -280,8 +280,8 @@ function _getBarLeftX(boardContainer) {
   const scale      = svgRect.width / svgVBWidth;
   const offsetX    = svgRect.left - boardRect.left;
 
-  // Bar left edge in SVG coords: BOARD_MARGIN(30) + 10 + 6*POINT_WIDTH(80) = 520
-  const barLeftSVG = 520;
+  // Bar left edge in SVG coords: BOARD_MARGIN + INNER_PAD + BEAR_OFF_WIDTH + 4 + 6*POINT_WIDTH
+  const barLeftSVG = BOARD_MARGIN + INNER_PAD + BEAR_OFF_WIDTH + 4 + 6 * POINT_WIDTH;
   return offsetX + barLeftSVG * scale;
 }
 
@@ -300,6 +300,7 @@ class DiceManager {
     this._remainingDice = [];
     this._W            = 0;
     this._H            = 0;
+    this._dpr          = 1;
   }
 
   // ── Remove persistent canvas ──────────────────────────────
@@ -339,6 +340,9 @@ class DiceManager {
   _redrawStatic() {
     if (!this._canvas || !this._finalDice || !this._ctx) return;
     const ctx = this._ctx;
+    const dpr = this._dpr || 1;
+    ctx.save();
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.clearRect(0, 0, this._W, this._H);
 
     const halfDie = (window.innerHeight <= 420 ? 30 : 44) / 2;
@@ -351,6 +355,7 @@ class DiceManager {
       // Green glow frame — solid, no pulsing
       _drawGlowFrame(ctx, d, halfDie, frameCounts[i]);
     }
+    ctx.restore();
   }
 
   // ── 3D physics dice animation ──────────────────────────────
@@ -371,19 +376,22 @@ class DiceManager {
         return;
       }
 
-      // ── Canvas overlay ──
+      // ── Canvas overlay (HiDPI aware) ──
       const canvas = document.createElement('canvas');
       canvas.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:15;';
       boardContainer.appendChild(canvas);
       this._canvas = canvas;
 
       const boardRect = boardContainer.getBoundingClientRect();
-      canvas.width  = boardRect.width;
-      canvas.height = boardRect.height;
+      const dpr = window.devicePixelRatio || 1;
+      canvas.width  = boardRect.width * dpr;
+      canvas.height = boardRect.height * dpr;
       const ctx = canvas.getContext('2d');
+      ctx.scale(dpr, dpr);
       this._ctx = ctx;
-      const W = this._W = canvas.width;
-      const H = this._H = canvas.height;
+      this._dpr = dpr;
+      const W = this._W = boardRect.width;
+      const H = this._H = boardRect.height;
 
       const htmlDieSize = window.innerHeight <= 420 ? 30 : 44;
       const halfDie     = htmlDieSize / 2;

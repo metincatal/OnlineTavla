@@ -257,30 +257,34 @@ html, body {
 #game-screen {
   flex-direction: row;
   align-items: center;
+  justify-content: center;
   padding: 8px;
   gap: 0;
   background: var(--bg-game);
 }
 
 /* =============================================
-   SIDE PANELS
+   SIDE PANELS — outside board, top corners, aligned
    ============================================= */
 
 .side-panel {
-  width: 56px;
-  flex-shrink: 0;
+  position: absolute;
+  top: 0;
+  width: 54px;
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
   gap: 5px;
-  padding: 12px 4px;
+  padding: 10px 4px;
   background: rgba(246,242,234,0.85);
   border: 1px solid var(--border);
-  border-radius: 14px;
-  margin: 0 5px;
+  border-radius: 10px;
+  z-index: 10;
   transition: border-color 0.3s, box-shadow 0.3s, background 0.3s;
 }
+
+#panel-black { left: -62px; }
+#panel-white { right: -62px; }
 
 .side-panel.active-turn {
   border-color: var(--accent);
@@ -289,7 +293,7 @@ html, body {
   box-shadow: 0 0 0 3px rgba(122,92,18,0.15), 0 4px 14px rgba(122,92,18,0.18);
 }
 
-.pill-dot { width: 22px; height: 22px; border-radius: 50%; flex-shrink: 0; }
+.pill-dot { width: 20px; height: 20px; border-radius: 50%; flex-shrink: 0; }
 .white-dot {
   background: radial-gradient(circle at 35% 30%, #FFF, #D4C4A4);
   box-shadow: 0 1px 4px rgba(44,26,14,0.22);
@@ -301,7 +305,7 @@ html, body {
 }
 
 .sp-name {
-  font-size: 0.6rem; font-weight: 800;
+  font-size: 0.58rem; font-weight: 800;
   color: var(--accent);
   text-align: center;
   letter-spacing: 0.04em;
@@ -309,13 +313,13 @@ html, body {
 }
 
 .sp-divider {
-  width: 28px; height: 1px;
+  width: 26px; height: 1px;
   background: var(--border-md);
   margin: 2px 0;
 }
 
 .sp-label {
-  font-size: 0.54rem;
+  font-size: 0.5rem;
   color: var(--text-muted);
   text-align: center;
   text-transform: uppercase;
@@ -323,7 +327,7 @@ html, body {
 }
 
 .sp-value {
-  font-size: 0.95rem; font-weight: 700;
+  font-size: 0.88rem; font-weight: 700;
   color: var(--text);
   text-align: center;
   line-height: 1;
@@ -367,7 +371,7 @@ html, body {
 .board-wrapper {
   flex: 1;
   display: flex; align-items: center; justify-content: center;
-  overflow: hidden;
+  overflow: visible;
   min-width: 0;
 }
 
@@ -840,12 +844,14 @@ html, body {
 /* Mobile landscape: ultra-compact */
 @media (max-height: 520px) and (orientation: landscape) {
   #game-screen    { padding: 4px; }
-  .side-panel     { width: 46px; margin: 0 3px; padding: 8px 2px; gap: 3px; border-radius: 10px; }
-  .pill-dot       { width: 18px; height: 18px; }
-  .sp-name        { font-size: 0.5rem; }
-  .sp-value       { font-size: 0.78rem; }
-  .sp-label       { font-size: 0.46rem; }
-  .sp-divider     { width: 20px; }
+  .side-panel     { width: 42px; padding: 6px 2px; gap: 3px; border-radius: 8px; }
+  #panel-black    { left: -48px; }
+  #panel-white    { right: -48px; }
+  .pill-dot       { width: 16px; height: 16px; }
+  .sp-name        { font-size: 0.48rem; }
+  .sp-value       { font-size: 0.72rem; }
+  .sp-label       { font-size: 0.42rem; }
+  .sp-divider     { width: 18px; }
   .board-circle-btn { width: 36px; height: 36px; font-size: 0.95rem; }
   .board-dice .die, .die { width: 30px; height: 30px; }
   .die .dot       { width: 5px; height: 5px; }
@@ -873,13 +879,12 @@ html, body {
   #game-screen    { padding: 16px 48px; justify-content: center; }
   .board-wrapper  { max-height: 82vh; }
   .board-container { width: min(100%, calc(82dvh * 1200 / 750)); }
-  .side-panel     { width: 68px; }
 }
 
-/* Mobile: prevent panel from overlapping floating corner */
+/* Mobile: adjust panel positions */
 @media (pointer: coarse) and (orientation: landscape) {
-  .side-panel { margin-bottom: 0; }
-  #panel-white { margin-right: 46px; }
+  #panel-black { left: -50px; }
+  #panel-white { right: -50px; }
 }
 
 /* Hinge shimmer animation */
@@ -889,3 +894,24 @@ html, body {
   48%       { opacity: 0.78; }
   52%       { opacity: 0.92; }
 }
+
+/* =============================================
+   UNIVERSAL CORNER SOFTENING
+   ============================================= */
+
+/* Inputs & buttons everywhere */
+input, button, select, textarea {
+  border-radius: var(--radius-sm);
+}
+
+/* Game toast */
+.game-toast { border-radius: 20px; }
+
+/* Board container */
+.board-container { border-radius: 10px; overflow: visible; }
+
+/* Initial roll overlay */
+.initial-roll { border-radius: 16px; }
+
+/* Dice — HTML fallback */
+.die { border-radius: 10px; }
