@@ -13,6 +13,8 @@ class Game {
     this._hitModalPending = false;  // waiting for hit-confirm modal
     this._autoPlaying = false;      // forced move in progress
     this.playerNames = { white: 'Beyaz', black: 'Siyah' };
+    this._aiPlayer = PLAYERS.BLACK;  // default: AI plays black
+    this._schoolClosedShown = false;
   }
 
   init() {
@@ -29,6 +31,7 @@ class Game {
     document.getElementById('game-screen').style.display = 'none';
     document.getElementById('gameover-screen').style.display = 'none';
     document.getElementById('setup-screen').style.display = 'none';
+    document.getElementById('ai-setup-screen').style.display = 'none';
   }
 
   showSetupScreen() {
@@ -44,8 +47,13 @@ class Game {
     this.beginInitialRoll();
   }
 
-  startAIGame(difficulty) {
+  startAIGame(difficulty, playerColor) {
     this.ai = new BackgammonAI(difficulty || AI_DIFFICULTY.HARD);
+    // Player color selection: default white
+    const aiIsBlack = (playerColor || PLAYERS.WHITE) === PLAYERS.WHITE;
+    this.playerNames.white = aiIsBlack ? 'Beyaz' : 'Beyaz (AI)';
+    this.playerNames.black = aiIsBlack ? 'Siyah (AI)' : 'Siyah';
+    this._aiPlayer = aiIsBlack ? PLAYERS.BLACK : PLAYERS.WHITE;
     this.initState(GAME_MODES.AI);
     this.showGame();
     this.beginInitialRoll();
@@ -125,7 +133,7 @@ class Game {
     this.updateUI();
     this.renderAll();
 
-    if (this.state.gameMode === GAME_MODES.AI && this.state.currentPlayer === PLAYERS.BLACK) {
+    if (this.state.gameMode === GAME_MODES.AI && this.state.currentPlayer === this._aiPlayer) {
       setTimeout(() => this.doAITurn(), 900);
     } else {
       this._checkAutoPlay();
@@ -158,7 +166,7 @@ class Game {
     this.updateUI();
     this.renderAll();
 
-    if (this.state.gameMode === GAME_MODES.AI && this.state.currentPlayer === PLAYERS.BLACK) {
+    if (this.state.gameMode === GAME_MODES.AI && this.state.currentPlayer === this._aiPlayer) {
       setTimeout(() => this.doAITurn(), 500);
     } else {
       this._checkAutoPlay();
@@ -175,7 +183,7 @@ class Game {
 
     const { currentPlayer, board, gameMode } = this.state;
     if (gameMode === GAME_MODES.ONLINE && !this.onlineGame.isMyTurn(currentPlayer)) return;
-    if (gameMode === GAME_MODES.AI && currentPlayer === PLAYERS.BLACK) return;
+    if (gameMode === GAME_MODES.AI && currentPlayer === this._aiPlayer) return;
 
     // Vur-kaç: kilitli pula tıklamayı engelle
     if (window.APP_SETTINGS && window.APP_SETTINGS.vurkac && point === this._vurkacLockedPoint) {
@@ -214,7 +222,7 @@ class Game {
 
     const { currentPlayer, gameMode } = this.state;
     if (gameMode === GAME_MODES.ONLINE && !this.onlineGame.isMyTurn(currentPlayer)) return;
-    if (gameMode === GAME_MODES.AI && currentPlayer === PLAYERS.BLACK) return;
+    if (gameMode === GAME_MODES.AI && currentPlayer === this._aiPlayer) return;
 
     // Vur-kaç: kilitli pulun sürükle-bırakını engelle
     if (window.APP_SETTINGS && window.APP_SETTINGS.vurkac && from === this._vurkacLockedPoint) {
@@ -452,7 +460,7 @@ class Game {
     if (this.state.phase !== PHASES.MOVING) return;
     if (this._hitModalPending) return;
     const { currentPlayer, gameMode, board, remainingDice } = this.state;
-    if (gameMode === GAME_MODES.AI && currentPlayer === PLAYERS.BLACK) return;
+    if (gameMode === GAME_MODES.AI && currentPlayer === this._aiPlayer) return;
 
     // Vur-kaç: kilitli pul üzerinde ghost highlight gösterme
     if (window.APP_SETTINGS && window.APP_SETTINGS.vurkac && point === this._vurkacLockedPoint) {
@@ -637,8 +645,37 @@ class Game {
     this._hadChoice = false;
     this._vurkacLockedPoint = null;
 
-    this.state.currentPlayer = this.state.currentPlayer === PLAYERS.WHITE
+    const nextPlayer = this.state.currentPlayer === PLAYERS.WHITE
       ? PLAYERS.BLACK : PLAYERS.WHITE;
+
+    // "Okullar kapalı": if the next player has pieces on bar and
+    // current player's home board is fully blocked, skip next player's turn
+    const currentPlayer = this.state.currentPlayer;
+    const nextBarIdx = nextPlayer === PLAYERS.WHITE ? 0 : 25;
+    const nextHasBar = nextPlayer === PLAYERS.WHITE ? this.state.board[nextBarIdx] > 0 : this.state.board[nextBarIdx] < 0;
+
+    if (nextHasBar && isSchoolClosed(this.state.board, currentPlayer)) {
+      // Opponent can't enter — skip their turn, keep current player
+      if (!this._schoolClosedShown) {
+        this._schoolClosedShown = true;
+        this.showToast('Okullar kapalı');
+      }
+      this.state.dice = [];
+      this.state.remainingDice = [];
+      this.state.validMoves = [];
+      this.state.phase = PHASES.ROLLING;
+      this.updateUI();
+      this.renderAll();
+      if (this.state.gameMode !== GAME_MODES.ONLINE) {
+        setTimeout(() => this.rollDice(), 1000);
+      }
+      return;
+    }
+
+    // Reset school closed flag when opponent can play again
+    this._schoolClosedShown = false;
+
+    this.state.currentPlayer = nextPlayer;
     this.state.dice = [];
     this.state.remainingDice = [];
     this.state.validMoves = [];
@@ -656,7 +693,7 @@ class Game {
   async _checkAutoPlay() {
     if (this.state.phase !== PHASES.MOVING) return;
     if (this.state.gameMode === GAME_MODES.ONLINE) return;
-    if (this.state.gameMode === GAME_MODES.AI && this.state.currentPlayer === PLAYERS.BLACK) return;
+    if (this.state.gameMode === GAME_MODES.AI && this.state.currentPlayer === this._aiPlayer) return;
 
     const moves = this.state.validMoves;
 
@@ -742,12 +779,13 @@ class Game {
   // ─── AI turn — visible step-by-step ──────────────────────────
 
   async doAITurn() {
-    if (this.state.currentPlayer !== PLAYERS.BLACK) return;
+    const aiPlayer = this._aiPlayer;
+    if (this.state.currentPlayer !== aiPlayer) return;
     if (this.state.phase !== PHASES.MOVING) return;
 
     const vurkacEnabled = !!(window.APP_SETTINGS && window.APP_SETTINGS.vurkac);
     const bestMoves = this.ai.getBestMoves(
-      this.state.board, PLAYERS.BLACK, this.state.remainingDice, vurkacEnabled
+      this.state.board, aiPlayer, this.state.remainingDice, vurkacEnabled
     );
 
     if (bestMoves.length === 0) {
@@ -758,24 +796,28 @@ class Game {
     this.showStatusMessage('Bilgisayar oynuyor...');
     await this.delay(350);
 
+    const aiBearOff = aiPlayer === PLAYERS.WHITE ? 25 : 0;
+    const aiBarIdx  = aiPlayer === PLAYERS.WHITE ? 0 : 25;
+    const oppBlot   = aiPlayer === PLAYERS.WHITE ? -1 : 1;
+
     for (const move of bestMoves) {
-      const fromLabel = move.from === 25 ? 'Bar' : `${move.from}. nokta`;
-      const toLabel   = move.to   === 0  ? 'Çıkış' : `${move.to}. nokta`;
+      const fromLabel = move.from === aiBarIdx ? 'Bar' : `${move.from}. nokta`;
+      const toLabel   = move.to   === aiBearOff ? 'Çıkış' : `${move.to}. nokta`;
       this.showStatusMessage(`▶ ${fromLabel} → ${toLabel}`);
 
       this.boardRenderer.flashPoint(move.from, '#FFD700');
       await this.delay(480);
 
-      if (move.to === 0) {
-        this.bearOffCounts[PLAYERS.BLACK]++;
+      if (move.to === aiBearOff) {
+        this.bearOffCounts[aiPlayer]++;
         if (window.sounds) sounds.play('bearoff');
-      } else if (this.state.board[move.to] === 1) {
+      } else if (this.state.board[move.to] === oppBlot) {
         if (window.sounds) sounds.play('hit');
       } else {
         if (window.sounds) sounds.play('move');
       }
 
-      this.state.board = applyMove(this.state.board, move, PLAYERS.BLACK);
+      this.state.board = applyMove(this.state.board, move, aiPlayer);
       this.state.remainingDice = getDiceAfterMove(this.state.remainingDice, move.die);
 
       this.boardRenderer.flashPoint(move.to, '#27AE60');
@@ -921,7 +963,7 @@ class Game {
 
   updateUI() {
     const { currentPlayer, phase, gameMode } = this.state;
-    const isAITurn = gameMode === GAME_MODES.AI && currentPlayer === PLAYERS.BLACK;
+    const isAITurn = gameMode === GAME_MODES.AI && currentPlayer === this._aiPlayer;
     const isOnline = gameMode === GAME_MODES.ONLINE;
 
     // Roll button: only visible in online mode
@@ -1030,7 +1072,11 @@ document.addEventListener('DOMContentLoaded', () => {
   const _u = () => { if (window.sounds) sounds.unlock(); };
 
   document.getElementById('btn-local').addEventListener('click', () => { _u(); _tryFullscreen(); game.showSetupScreen(); });
-  document.getElementById('btn-ai').addEventListener('click', () => { _u(); _tryFullscreen(); game.startAIGame(AI_DIFFICULTY.HARD); });
+  document.getElementById('btn-ai').addEventListener('click', () => {
+    _u(); _tryFullscreen();
+    document.getElementById('menu-screen').style.display = 'none';
+    document.getElementById('ai-setup-screen').style.display = 'flex';
+  });
   document.getElementById('btn-create-room').addEventListener('click', () => { _u(); game.startOnlineGame(); });
   document.getElementById('btn-join-room').addEventListener('click', () => {
     _u();
@@ -1096,6 +1142,36 @@ document.addEventListener('DOMContentLoaded', () => {
     const whiteName = _setupP1Color === PLAYERS.WHITE ? n1 : n2;
     const blackName = _setupP1Color === PLAYERS.BLACK ? n1 : n2;
     game.startLocalGame(whiteName, blackName);
+  });
+
+  // ─── AI Setup screen (color selection) ──────────────────────
+  let _aiPlayerColor = PLAYERS.WHITE;
+
+  const _updateAIBadges = () => {
+    const bp = document.getElementById('ai-badge-player');
+    const ba = document.getElementById('ai-badge-ai');
+    if (_aiPlayerColor === PLAYERS.WHITE) {
+      bp.className = 'player-color-badge white-badge';
+      ba.className = 'player-color-badge black-badge';
+    } else {
+      bp.className = 'player-color-badge black-badge';
+      ba.className = 'player-color-badge white-badge';
+    }
+  };
+  _updateAIBadges();
+
+  document.getElementById('ai-shuffle').addEventListener('click', () => {
+    _aiPlayerColor = _aiPlayerColor === PLAYERS.WHITE ? PLAYERS.BLACK : PLAYERS.WHITE;
+    _updateAIBadges();
+  });
+  document.getElementById('ai-cancel').addEventListener('click', () => {
+    document.getElementById('ai-setup-screen').style.display = 'none';
+    document.getElementById('menu-screen').style.display = 'flex';
+  });
+  document.getElementById('ai-start').addEventListener('click', () => {
+    _u(); _tryFullscreen();
+    document.getElementById('ai-setup-screen').style.display = 'none';
+    game.startAIGame(AI_DIFFICULTY.HARD, _aiPlayerColor);
   });
 
   // ─── Settings modal ─────────────────────────────────────────
