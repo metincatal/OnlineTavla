@@ -512,8 +512,8 @@ class DiceManager {
 
         this._finalDice = diceState.map(d => ({
           value: d.value,
-          x:     d.targetX,
-          y:     d.targetY,
+          x:     d.x,
+          y:     d.y,
           z:     0,
           angX:  d.finalAngX,
           angY:  d.finalAngY,
@@ -592,11 +592,23 @@ class DiceManager {
             }
           } else {
             settledCount++;
+            // Slide toward target position
             d.x += (d.targetX - d.x) * 0.12;
             d.y += (d.targetY - d.y) * 0.12;
-            d.angX += (d.finalAngX - d.angX) * 0.10;
-            d.angY += (d.finalAngY - d.angY) * 0.10;
-            d.angZ += (d.finalAngZ - d.angZ) * 0.10;
+
+            // Toppling: die tips over naturally to show correct face
+            const settleMs = now - d.settleTime;
+            const tFrac = Math.min(settleMs / 400, 1);  // 0→1 over 400ms
+            const ease = tFrac * (2 - tFrac);            // ease-out
+            const lerpRate = 0.06 + ease * 0.14;         // 0.06 → 0.20
+
+            d.angX += (d.finalAngX - d.angX) * lerpRate;
+            d.angY += (d.finalAngY - d.angY) * lerpRate;
+            d.angZ += (d.finalAngZ - d.angZ) * lerpRate;
+
+            // Small z-lift during topple for 3D feel
+            d.z = halfDie * 0.15 * Math.sin(tFrac * Math.PI) * (1 - ease * 0.7);
+
             d.omegaX *= 0.80;
             d.omegaY *= 0.80;
             d.omegaZ *= 0.80;
@@ -614,7 +626,7 @@ class DiceManager {
 
         // Resolve after settling + brief linger
         if (settledCount === diceState.length && resolveAt === null) {
-          resolveAt = now + 280;
+          resolveAt = now + 450;  // enough time for topple animation
         }
         if ((resolveAt !== null && now >= resolveAt) || elapsed > 2800) {
           _finish();

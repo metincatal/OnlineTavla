@@ -750,29 +750,38 @@ html, body {
 .toggle-switch input:checked + .ts-track .ts-thumb { transform: translateX(20px); }
 
 /* =============================================
-   GAME TOAST
+   GAME NOTICE (standardized in-game notifications)
    ============================================= */
 
 .game-toast {
   position: fixed;
-  bottom: 72px;
+  top: 50%;
   left: 50%;
-  transform: translateX(-50%);
-  background: rgba(44,26,14,0.86);
+  transform: translate(-50%, -50%);
+  background: linear-gradient(145deg, rgba(58,24,8,0.94), rgba(44,26,14,0.96));
   color: #F6F2EA;
-  padding: 7px 18px;
-  border-radius: 20px;
-  font-size: 0.82rem;
-  font-weight: 500;
-  letter-spacing: 0.01em;
-  z-index: 500;
+  padding: 14px 28px;
+  border-radius: 14px;
+  border: 1px solid rgba(176,136,40,0.3);
+  font-size: 0.9rem;
+  font-weight: 600;
+  text-align: center;
+  letter-spacing: 0.02em;
+  line-height: 1.4;
+  z-index: 150;
   white-space: nowrap;
   pointer-events: none;
-  animation: toastPop 0.2s ease;
+  box-shadow: 0 6px 24px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,200,100,0.08);
+  animation: noticePop 0.25s cubic-bezier(.34,1.56,.64,1);
 }
-@keyframes toastPop {
-  from { opacity: 0; transform: translateX(-50%) translateY(6px); }
-  to   { opacity: 1; transform: translateX(-50%) translateY(0); }
+@keyframes noticePop {
+  from { opacity: 0; transform: translate(-50%, -50%) scale(0.85); }
+  to   { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+}
+
+/* Mobile compact */
+@media (max-height: 520px) and (orientation: landscape) {
+  .game-toast { padding: 10px 20px; font-size: 0.8rem; border-radius: 10px; }
 }
 
 /* =============================================
