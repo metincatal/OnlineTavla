@@ -770,7 +770,7 @@ class Board {
     }
     if (white > 0) {
       const t = this.text(rTrayCX, SVG_HEIGHT / 2 - 10, `${white}`,
-        'rgba(255,220,150,0.85)', 11, true);
+        'rgba(255,220,150,0.95)', 16, true);
       t.style.pointerEvents = 'none';
       this.piecesGroup.appendChild(t);
     }
@@ -791,7 +791,7 @@ class Board {
     }
     if (black > 0) {
       const t = this.text(lTrayCX, SVG_HEIGHT / 2 - 10, `${black}`,
-        'rgba(255,220,150,0.85)', 11, true);
+        'rgba(255,220,150,0.95)', 16, true);
       t.style.pointerEvents = 'none';
       this.piecesGroup.appendChild(t);
     }

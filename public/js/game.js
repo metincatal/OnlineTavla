@@ -11,6 +11,7 @@ class Game {
     this.moveHistory = [];          // undo stack
     this.confirmPending = false;    // waiting for player to confirm turn end
     this._hitModalPending = false;  // waiting for hit-confirm modal
+    this._autoPlaying = false;      // forced move in progress
     this.playerNames = { white: 'Beyaz', black: 'Siyah' };
   }
 
@@ -65,6 +66,7 @@ class Game {
     this.moveHistory = [];
     this.confirmPending = false;
     this._hitModalPending = false;
+    this._autoPlaying = false;
     this._hadChoice = false; // player made at least one chosen move this turn
     this._vurkacLockedPoint = null; // vur-kaç: point that hit in own home this turn
     this.state = {
@@ -169,6 +171,7 @@ class Game {
     if (this.state.phase !== PHASES.MOVING) return;
     if (this.confirmPending) return;
     if (this._hitModalPending) return;
+    if (this._autoPlaying) return;
 
     const { currentPlayer, board, gameMode } = this.state;
     if (gameMode === GAME_MODES.ONLINE && !this.onlineGame.isMyTurn(currentPlayer)) return;
@@ -207,6 +210,7 @@ class Game {
     if (this.state.phase !== PHASES.MOVING) return;
     if (this.confirmPending) return;
     if (this._hitModalPending) return;
+    if (this._autoPlaying) return;
 
     const { currentPlayer, gameMode } = this.state;
     if (gameMode === GAME_MODES.ONLINE && !this.onlineGame.isMyTurn(currentPlayer)) return;
@@ -629,6 +633,7 @@ class Game {
   endTurn() {
     this.moveHistory = [];
     this.confirmPending = false;
+    this._autoPlaying = false;
     this._hadChoice = false;
     this._vurkacLockedPoint = null;
 
@@ -657,10 +662,20 @@ class Game {
 
     if (moves.length === 0) {
       if (this._hadChoice) {
-        // Player made some choices this turn; let them review/undo before passing
+        this._autoPlaying = false;
         this._showConfirmButton();
       } else {
-        await this.delay(450);
+        this._autoPlaying = true;
+        // Show message: bar piece can't enter or no moves
+        const isWhite = this.state.currentPlayer === PLAYERS.WHITE;
+        const barIdx = isWhite ? 0 : 25;
+        if (this.state.board[barIdx] !== 0) {
+          this.showToast('Kırık pul giremedi — sıra geçiyor');
+        } else {
+          this.showToast('Hamle yok — sıra geçiyor');
+        }
+        await this.delay(1200);
+        this._autoPlaying = false;
         if (this.state.phase === PHASES.MOVING) this.endTurn();
       }
       return;
@@ -668,15 +683,17 @@ class Game {
 
     const uniquePairs = new Set(moves.map(m => `${m.from}-${m.to}`));
     if (uniquePairs.size > 1) {
+      this._autoPlaying = false;
       this.updateUI(); // multiple choices, player decides
       return;
     }
 
     // Only one destination possible → forced move
+    this._autoPlaying = true;
     await this.delay(350);
-    if (this.state.phase !== PHASES.MOVING) return;
+    if (this.state.phase !== PHASES.MOVING) { this._autoPlaying = false; return; }
 
-    const move = moves.reduce((a, b) => a.die < b.die ? a : b); // use smallest die
+    const move = moves.reduce((a, b) => a.die < b.die ? a : b);
     this._applyForcedMove(move);
   }
 
@@ -708,11 +725,13 @@ class Game {
 
     if (this.state.remainingDice.length === 0) {
       if (this._hadChoice) {
-        // Player made some choices this turn → let them review/undo
+        this._autoPlaying = false;
         this._showConfirmButton();
       } else {
-        // Entire turn was forced → auto end
-        setTimeout(() => { if (this.state.phase === PHASES.MOVING) this.endTurn(); }, 450);
+        setTimeout(() => {
+          this._autoPlaying = false;
+          if (this.state.phase === PHASES.MOVING) this.endTurn();
+        }, 450);
       }
     } else {
       setTimeout(() => this._checkAutoPlay(), 350);
@@ -725,8 +744,9 @@ class Game {
     if (this.state.currentPlayer !== PLAYERS.BLACK) return;
     if (this.state.phase !== PHASES.MOVING) return;
 
+    const vurkacEnabled = !!(window.APP_SETTINGS && window.APP_SETTINGS.vurkac);
     const bestMoves = this.ai.getBestMoves(
-      this.state.board, PLAYERS.BLACK, this.state.remainingDice
+      this.state.board, PLAYERS.BLACK, this.state.remainingDice, vurkacEnabled
     );
 
     if (bestMoves.length === 0) {
