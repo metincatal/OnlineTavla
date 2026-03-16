@@ -190,6 +190,29 @@ function applyMove(board, move, player) {
 }
 
 /**
+ * Check if opponent's home board is fully blocked ("okullar kapalı").
+ * If a player has all 6 points in their home covered (2+ pieces),
+ * the opponent on the bar cannot enter.
+ *   player = the player whose home we check
+ *   Returns true if all 6 home points are blocked by that player.
+ */
+function isSchoolClosed(board, player) {
+  const isWhite = player === PLAYERS.WHITE;
+  if (isWhite) {
+    // White's home: 19-24. Check if all blocked by white (2+ pieces).
+    for (let i = 19; i <= 24; i++) {
+      if (board[i] < 2) return false;
+    }
+  } else {
+    // Black's home: 1-6. Check if all blocked by black (2+ pieces).
+    for (let i = 1; i <= 6; i++) {
+      if (board[i] > -2) return false;
+    }
+  }
+  return true;
+}
+
+/**
  * Check if the game is over (all pieces borne off).
  */
 function isGameOver(board) {

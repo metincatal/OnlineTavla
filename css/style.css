@@ -664,6 +664,14 @@ html, body {
   transition: border-color 0.15s;
 }
 .setup-name-input:focus { border-color: var(--accent); }
+.setup-name-static {
+  flex: 1;
+  padding: 10px 14px;
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text-light);
+  letter-spacing: 0.02em;
+}
 .setup-shuffle-row {
   display: flex;
   justify-content: center;
