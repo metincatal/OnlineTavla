@@ -277,9 +277,9 @@ class Game {
       // Update settings display
       const smVal = document.getElementById('sm-nickname-val');
       if (smVal) smVal.textContent = nick;
-      // Update server nickname
-      if (this.onlineGame && this.onlineGame.connected && this.onlineGame.socket) {
-        this.onlineGame.socket.emit('set-nickname', { nickname: nick });
+      // Update Firebase presence nickname
+      if (this.onlineGame && this.onlineGame.connected && this.onlineGame._presenceRef) {
+        this.onlineGame._presenceRef.update({ nickname: nick }).catch(() => {});
       }
       if (callback) callback(nick);
     };
@@ -311,16 +311,14 @@ class Game {
     if (!this.onlineGame) this.onlineGame = new OnlineGame(this);
     if (this.onlineGame.connected) return;
 
-    this.showGlobalNotification('Sunucuya bağlanılıyor...', 'info', 0);
+    this.showGlobalNotification('Firebase bağlantısı kuruluyor...', 'info', 0);
     try {
-      await this.onlineGame.connectToServer();
+      await this.onlineGame.connect();
       document.getElementById('global-notification').style.display = 'none';
       this.onlineGame.fetchOnlineCount();
     } catch (err) {
       this.showGlobalNotification(
-        err.message === 'timeout'
-          ? 'Sunucu uyanıyor... Lütfen birkaç saniye bekleyin ve tekrar deneyin.'
-          : 'Sunucuya bağlanılamadı. Lütfen tekrar deneyin.',
+        'Firebase bağlantısı kurulamadı. Lütfen tekrar deneyin.',
         'warning', 5000
       );
       throw err;

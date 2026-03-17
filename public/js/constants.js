@@ -65,15 +65,6 @@ const COLORS = {
   textDark:         '#2C1A0E'
 };
 
-// Server URL — production vs localhost
-const SERVER_URL = (() => {
-  if (location.hostname === 'localhost' || location.hostname === '127.0.0.1') {
-    return `http://${location.hostname}:3000`;
-  }
-  // GitHub Pages or other static host → connect to Render
-  return 'https://bearoffbattle.onrender.com';
-})();
-
 // App settings — persisted in localStorage
 const APP_SETTINGS = {
   get vurkac() { return localStorage.getItem('app_vurkac') !== 'false'; },
