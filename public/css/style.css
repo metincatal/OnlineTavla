@@ -1482,3 +1482,107 @@ input, button, select, textarea {
   border-radius: 10px;
   background: var(--bg);
 }
+
+/* =============================================
+   PANEL TIMER (circular countdown)
+   ============================================= */
+
+.panel-timer {
+  position: relative;
+  width: 38px; height: 38px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.timer-svg {
+  width: 100%; height: 100%;
+  transform: rotate(-90deg);
+}
+.timer-bg-circle {
+  fill: none;
+  stroke: var(--border);
+  stroke-width: 2.5;
+}
+.timer-progress {
+  fill: none;
+  stroke: var(--green);
+  stroke-width: 2.5;
+  stroke-linecap: round;
+  stroke-dasharray: 106.81;
+  stroke-dashoffset: 106.81;
+  transition: stroke-dashoffset 0.15s linear, stroke 0.3s;
+}
+.timer-text {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.68rem;
+  font-weight: 800;
+  color: var(--green);
+  pointer-events: none;
+}
+
+.panel-timer.timer-active .timer-bg-circle {
+  stroke: rgba(42,107,58,0.2);
+}
+.panel-timer.timer-bonus .timer-progress {
+  stroke: var(--danger);
+}
+.panel-timer.timer-bonus .timer-bg-circle {
+  stroke: rgba(139,42,26,0.15);
+}
+.panel-timer.timer-bonus .timer-text {
+  color: var(--danger);
+}
+.panel-timer.timer-warning .timer-progress {
+  stroke: #C03020;
+  animation: timerPulse 0.6s ease infinite;
+}
+.panel-timer.timer-warning .timer-text {
+  color: #C03020;
+  animation: timerPulse 0.6s ease infinite;
+}
+@keyframes timerPulse {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.5; }
+}
+
+/* =============================================
+   PANEL COIN DISPLAY
+   ============================================= */
+
+.sp-coin {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  justify-content: center;
+}
+.sp-coin-icon {
+  font-size: 0.5rem;
+  color: #B08828;
+}
+.sp-coin-val {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--accent);
+}
+
+/* Mobile compact: timer + coin */
+@media (max-height: 520px) and (orientation: landscape) {
+  .panel-timer { width: 30px; height: 30px; }
+  .timer-text  { font-size: 0.56rem; }
+  .sp-coin-val { font-size: 0.6rem; }
+  .sp-coin-icon { font-size: 0.4rem; }
+}
+
+/* =============================================
+   MOBILE DICE SIZE REDUCTION
+   ============================================= */
+
+@media (max-height: 420px) and (orientation: landscape) {
+  .board-dice .die, .die { width: 24px; height: 24px; border-radius: 6px; }
+  .die .dot { width: 4px; height: 4px; }
+}
