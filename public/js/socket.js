@@ -665,6 +665,22 @@ class OnlineGame {
     }
   }
 
+  // ─── Undo Move (sync board state back to Firebase) ────────
+
+  async undoToState(board, remainingDice) {
+    if (!this.roomId) return;
+    try {
+      await this.db.ref('rooms/' + this.roomId + '/gameState').update({
+        board: board,
+        remainingDice: remainingDice
+      });
+      // Decrement move seq so the lastMove listener doesn't re-apply
+      if (this._moveSeq > 0) this._moveSeq--;
+    } catch (err) {
+      console.error('Undo sync error:', err);
+    }
+  }
+
   // ─── Doubling Cube ─────────────────────────────────────────────
 
   async offerDouble() {
@@ -864,16 +880,35 @@ class OnlineGame {
 
         const roomInfo = this._buildRoomInfo(roomCode, info, playerList);
         this.game.loadOnlineState(gs, this.myColor, roomInfo);
+
+        // If phase is initial_roll, trigger initial roll animation on both clients
+        if (gs.phase === 'initial_roll' && gs.whiteRoll && gs.blackRoll) {
+          this.game.doOnlineInitialRoll(gs.whiteRoll, gs.blackRoll, gs.currentPlayer, gs.dice);
+          // Host transitions phase to 'moving' after animation
+          if (this._isHost) {
+            setTimeout(() => {
+              this.db.ref('rooms/' + roomCode + '/gameState/phase').set('moving').catch(() => {});
+            }, 3200);
+          }
+        }
         return;
       }
 
       // Subsequent updates: check for dice roll or turn change from opponent
       if (!firstLoad && this.game.state && this.game.state.gameMode === 'online') {
-        // Dice update from opponent
+        // Phase transition from initial_roll to moving
+        if (gs.phase === 'moving' && this.game.state.phase === 'initial_roll') {
+          this.game.state.phase = PHASES.MOVING;
+          this.game.updateValidMoves();
+          this.game.updateUI();
+          this.game.renderAll();
+          return;
+        }
+
+        // Dice update — animate for both players
         if (gs.dice && gs.dice.length > 0 && gs.phase === 'moving') {
           const currentDice = this.game.state.dice || [];
           const newDice = gs.dice;
-          // Check if dice actually changed
           if (JSON.stringify(currentDice) !== JSON.stringify(newDice)) {
             this.game.onlineRollReceived(newDice, gs.currentPlayer);
           }
@@ -882,11 +917,6 @@ class OnlineGame {
         // Turn change
         if (gs.currentPlayer !== this.game.state.currentPlayer) {
           this.game.onlineTurnChanged(gs.currentPlayer);
-        }
-
-        // Board state sync (for opponent moves)
-        if (gs.board && gs.currentPlayer !== this.myColor) {
-          // Opponent's board state came in via lastMove listener
         }
       }
     });
@@ -908,7 +938,7 @@ class OnlineGame {
         const gs = gsSnap.val();
         if (!gs) return;
 
-        const moveData = { from: move.from, to: move.to, die: move.die };
+        const moveData = { from: move.from, to: move.to, die: move.die, player: move.player };
         this.game.onlineMoveReceived(gs, moveData);
       }).catch(() => {});
     });
@@ -958,12 +988,15 @@ class OnlineGame {
         ? [whiteRoll, blackRoll]
         : [blackRoll, whiteRoll];
 
+      // Start with initial_roll phase so both clients animate the dice
       const gameState = {
         board: [...INITIAL_BOARD],
         currentPlayer: firstPlayer,
         dice: initialDice,
         remainingDice: [...initialDice],
-        phase: 'moving'
+        phase: 'initial_roll',
+        whiteRoll: whiteRoll,
+        blackRoll: blackRoll
       };
 
       await this.db.ref('rooms/' + roomCode).update({

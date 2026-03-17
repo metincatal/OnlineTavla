@@ -427,25 +427,38 @@ html, body {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   pointer-events: all;
 }
 
-/* Online roll button */
-.board-action-btn {
-  padding: 9px 20px; border: none; border-radius: 22px;
-  font-size: 0.9rem; font-weight: 700;
-  cursor: pointer; white-space: nowrap;
-  transition: all 0.18s ease;
+/* Action button row (roll + double side by side) */
+.action-btn-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
-.roll-btn-style {
+
+/* Roll circle button */
+.roll-circle-btn {
   background: var(--accent);
   color: #FFF;
-  border: 1px solid transparent;
-  box-shadow: var(--shadow-sm);
+  border: 2px solid var(--accent-lt);
+  box-shadow: 0 2px 8px rgba(122,92,18,0.3);
+  font-size: 1.2rem;
 }
-.roll-btn-style:hover:not(:disabled) { background: var(--accent-lt); }
-.roll-btn-style:disabled { opacity: 0.4; cursor: default; }
+.roll-circle-btn:hover:not(:disabled) { background: var(--accent-lt); }
+.roll-circle-btn:disabled { opacity: 0.4; cursor: default; }
+
+/* Double circle button */
+.double-circle-btn {
+  background: #D4A840;
+  color: #3A2008;
+  border: 2px solid #B08828;
+  box-shadow: 0 2px 8px rgba(122,92,18,0.3);
+  font-size: 0.95rem;
+  font-weight: 900;
+}
+.double-circle-btn:hover { background: #C09030; border-color: #8A6820; }
 
 /* Circular action buttons (undo + confirm) */
 .board-circle-btn {
@@ -1455,16 +1468,7 @@ input, button, select, textarea {
   box-shadow: 0 2px 6px rgba(44,26,14,0.2);
 }
 
-/* Double button */
-.double-btn-style {
-  background: #D4A840;
-  color: #3A2008;
-  border: 1px solid #B08828;
-  box-shadow: var(--shadow-sm);
-  font-size: 0.82rem;
-  padding: 7px 14px;
-}
-.double-btn-style:hover { background: #C09030; }
+/* (double-btn-style removed — now uses .double-circle-btn) */
 
 /* =============================================
    GAMEOVER COIN RESULT

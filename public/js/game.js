@@ -449,6 +449,9 @@ class Game {
     }
     if (this.state.phase !== PHASES.ROLLING) return;
     if (this.state.gameMode === GAME_MODES.ONLINE) {
+      // Disable button immediately to prevent double-click
+      const rollBtn = document.getElementById('roll-btn');
+      if (rollBtn) rollBtn.disabled = true;
       this.onlineGame.rollDice();
       return;
     }
@@ -816,7 +819,6 @@ class Game {
   undo() {
     if (this.moveHistory.length === 0) return;
     if (this.state.phase === PHASES.GAMEOVER) return;
-    if (this.state.gameMode === GAME_MODES.ONLINE) return;
     if (this._hitModalPending) return;
 
     this.confirmPending = false;
@@ -831,6 +833,11 @@ class Game {
     this.updateValidMoves();
     this.updateUI();
     this.renderAll();
+
+    // Sync undo to Firebase for online mode
+    if (this.state.gameMode === GAME_MODES.ONLINE && this.onlineGame) {
+      this.onlineGame.undoToState(snap.board, snap.remainingDice);
+    }
   }
 
   // ─── Apply a move ─────────────────────────────────────────────
@@ -968,7 +975,10 @@ class Game {
 
   async _checkAutoPlay() {
     if (this.state.phase !== PHASES.MOVING) return;
-    if (this.state.gameMode === GAME_MODES.ONLINE) return;
+    if (this.state.gameMode === GAME_MODES.ONLINE) {
+      // Only auto-play for current player's own turn
+      if (!this.onlineGame || !this.onlineGame.isMyTurn(this.state.currentPlayer)) return;
+    }
     if (this.state.gameMode === GAME_MODES.AI && this.state.currentPlayer === this._aiPlayer) return;
 
     const moves = this.state.validMoves;
@@ -1207,8 +1217,14 @@ class Game {
     this.state.currentPlayer = gameState.currentPlayer;
     this.state.dice = gameState.dice || [];
     this.state.remainingDice = gameState.remainingDice || [];
-    this.state.phase = gameState.remainingDice && gameState.remainingDice.length > 0
-      ? PHASES.MOVING : PHASES.ROLLING;
+
+    // If initial_roll phase, keep it; otherwise determine from dice
+    if (gameState.phase === 'initial_roll') {
+      this.state.phase = PHASES.INITIAL_ROLL;
+    } else {
+      this.state.phase = gameState.remainingDice && gameState.remainingDice.length > 0
+        ? PHASES.MOVING : PHASES.ROLLING;
+    }
 
     if (roomInfo && roomInfo.players) {
       const whitePlayer = roomInfo.players.find(p => p.color === 'white');
@@ -1221,27 +1237,61 @@ class Game {
     this.updateValidMoves();
     this.updateUI();
     this.renderAll();
-
-    // Show initial dice if game started with dice
-    if (gameState.dice && gameState.dice.length > 0) {
-      this.diceManager.showDiceResult(
-        gameState.dice, gameState.remainingDice, gameState.currentPlayer
-      );
-    }
   }
 
-  onlineRollReceived(dice, player) {
-    this.state.dice = expandDice(dice);
-    this.state.remainingDice = [...this.state.dice];
+  async doOnlineInitialRoll(whiteRoll, blackRoll, firstPlayer, dice) {
+    // Animate the initial roll just like local/AI modes
+    await this.diceManager.animateRoll([whiteRoll, blackRoll], 600, 'white');
+    if (window.sounds) sounds.play('dice');
+
+    showInitialRollDice(whiteRoll, blackRoll);
+    setTimeout(() => {
+      const el = document.getElementById('initial-roll-display');
+      if (el) el.innerHTML = '';
+    }, 2000);
+
+    // Set state to moving after animation
+    this.state.dice = dice;
+    this.state.remainingDice = [...dice];
     this.state.phase = PHASES.MOVING;
     this.updateValidMoves();
     this.updateUI();
     this.renderAll();
   }
 
+  async onlineRollReceived(dice, player) {
+    // Animate dice roll for both players (dice already expanded from Firebase)
+    const displayDice = dice.length <= 2 ? dice : dice.slice(0, 2);
+    await this.diceManager.animateRoll(displayDice, 450, player);
+    if (window.sounds) sounds.play('dice');
+
+    this.state.dice = [...dice];
+    this.state.remainingDice = [...dice];
+    this.state.phase = PHASES.MOVING;
+    this.moveHistory = [];
+    this.updateValidMoves();
+    this.updateUI();
+    this.renderAll();
+  }
+
   onlineMoveReceived(gameState, move) {
+    // Play sound for opponent's move
+    const oldBoard = this.state.board;
+    const isBearOff = (move.to === 25 || move.to === 0);
+    const isHit = !isBearOff && oldBoard[move.to] !== undefined &&
+      ((move.player === 'white' && oldBoard[move.to] < 0) ||
+       (move.player === 'black' && oldBoard[move.to] > 0));
+
+    if (isBearOff) {
+      if (window.sounds) sounds.play('bearoff');
+    } else if (isHit) {
+      if (window.sounds) sounds.play('hit');
+    } else {
+      if (window.sounds) sounds.play('move');
+    }
+
     this.state.board = gameState.board;
-    this.state.remainingDice = gameState.remainingDice;
+    this.state.remainingDice = gameState.remainingDice || [];
     this.updateValidMoves();
     this.renderAll();
   }
@@ -1252,6 +1302,9 @@ class Game {
     this.state.dice = [];
     this.state.remainingDice = [];
     this.state.validMoves = [];
+    this.moveHistory = [];
+    this.confirmPending = false;
+    this._vurkacLockedPoint = null;
     this.updateUI();
     this.renderAll();
   }
@@ -1341,10 +1394,13 @@ class Game {
       }
     }
 
-    // Undo button
+    // Undo button (enabled for online mode too — only for own turn)
     const undoBtn = document.getElementById('undo-btn');
     if (undoBtn) {
-      const showUndo = !isAITurn && !isOnline &&
+      const myTurnForUndo = isOnline
+        ? this.onlineGame && this.onlineGame.isMyTurn(currentPlayer)
+        : true;
+      const showUndo = !isAITurn && myTurnForUndo &&
         phase === PHASES.MOVING && this.moveHistory.length > 0;
       undoBtn.style.display = showUndo ? '' : 'none';
     }

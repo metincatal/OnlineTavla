@@ -316,8 +316,10 @@
       <div class="board-center-strip">
         <div id="dice-animation-container" class="board-dice"></div>
         <div class="board-action-zone">
-          <button id="double-btn" class="board-action-btn double-btn-style" style="display:none">×2 Katla</button>
-          <button id="roll-btn" class="board-action-btn roll-btn-style" disabled style="display:none">🎲 Zar At</button>
+          <div class="action-btn-row">
+            <button id="roll-btn" class="board-circle-btn roll-circle-btn" disabled style="display:none" title="Zar At">🎲</button>
+            <button id="double-btn" class="board-circle-btn double-circle-btn" style="display:none" title="x2 Katla">×2</button>
+          </div>
           <button id="undo-btn" class="board-circle-btn undo-circle-btn" style="display:none" title="Geri Al">↩</button>
           <button id="confirm-turn-btn" class="board-circle-btn confirm-circle-btn" style="display:none" title="Sırayı Geç">✓</button>
         </div>
