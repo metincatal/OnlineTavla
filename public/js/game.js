@@ -1517,8 +1517,18 @@ class Game {
     if (isOnline && this._onlineRoomInfo) {
       const wCoin = document.getElementById('white-coin');
       const bCoin = document.getElementById('black-coin');
-      if (wCoin) wCoin.textContent = this._onlineRoomInfo.betAmount || '-';
-      if (bCoin) bCoin.textContent = this._onlineRoomInfo.betAmount || '-';
+      const myColor = this.onlineGame ? this.onlineGame.myColor : null;
+      const bet = this._onlineRoomInfo.betAmount || 0;
+      const players = this._onlineRoomInfo.players || [];
+      const wPlayer = players.find(p => p.color === 'white');
+      const bPlayer = players.find(p => p.color === 'black');
+      // My coins: APP_SETTINGS.coins (already deducted). Opponent: stored coins - bet.
+      if (wCoin) wCoin.textContent = myColor === 'white'
+        ? APP_SETTINGS.coins
+        : (wPlayer ? wPlayer.coins - bet : '-');
+      if (bCoin) bCoin.textContent = myColor === 'black'
+        ? APP_SETTINGS.coins
+        : (bPlayer ? bPlayer.coins - bet : '-');
       // Show coin containers
       document.querySelectorAll('.sp-coin, .sp-coin-divider').forEach(el => el.style.display = '');
     } else {
@@ -1925,10 +1935,18 @@ document.addEventListener('DOMContentLoaded', () => {
   const vurkacRow     = document.getElementById('toggle-vurkac').closest('.sm-row');
   const vurkacDivider = vurkacRow.previousElementSibling;
 
+  const nickRow     = document.getElementById('sm-nickname-row');
+  const nickDivider = document.getElementById('sm-nickname-divider');
+
   const openSettings = (fromGame = false) => {
     const hide = fromGame ? 'none' : '';
     vurkacRow.style.display = hide;
     if (vurkacDivider) vurkacDivider.style.display = hide;
+    // Hide nickname row during online game
+    const isOnlineGame = game.state && game.state.gameMode === GAME_MODES.ONLINE && game.state.phase !== PHASES.GAMEOVER;
+    const hideNick = (fromGame && isOnlineGame) ? 'none' : '';
+    if (nickRow) nickRow.style.display = hideNick;
+    if (nickDivider) nickDivider.style.display = hideNick;
     settingsModal.style.display = 'flex';
   };
   const closeSettings = () => { settingsModal.style.display = 'none'; };

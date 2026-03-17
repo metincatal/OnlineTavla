@@ -16,6 +16,7 @@ class OnlineGame {
     this._presenceRef = null;
     this._disconnectRefs = [];  // onDisconnect refs to cancel on clean leave
     this._serverTimeOffset = 0;
+    this._writeQueue = Promise.resolve();
   }
 
   // ─── OderId (persistent player identity) ───────────────────────
@@ -605,78 +606,65 @@ class OnlineGame {
   async makeMove(move) {
     if (!this.roomId) return;
 
-    try {
-      const gsSnap = await this.db.ref('rooms/' + this.roomId + '/gameState').once('value');
-      const gs = gsSnap.val();
-      if (!gs || gs.currentPlayer !== this.myColor) return;
+    // Snapshot local board state (already applied by game.js)
+    const board = [...this.game.state.board];
+    const remaining = [...(this.game.state.remainingDice || [])];
+    const roomId = this.roomId;
 
-      const isWhite = this.myColor === 'white';
-      const board = gs.board;
+    this._moveSeq++;
+    const seq = this._moveSeq;
 
-      // Apply move locally and write
-      const newBoard = this._applyMove(board, move, isWhite);
-      const newRemaining = this._removeDie(gs.remainingDice, move.die);
-
-      // Check game over
-      if (this._isGameOver(newBoard)) {
-        const winner = this._getWinner(newBoard);
-        const gameType = this._getGameType(newBoard, winner);
-
-        this._moveSeq++;
-        await this.db.ref('rooms/' + this.roomId).update({
-          'gameState/board': newBoard,
-          'gameState/remainingDice': newRemaining,
+    this._writeQueue = this._writeQueue.then(async () => {
+      try {
+        const updates = {
+          'gameState/board': board,
+          'gameState/remainingDice': remaining,
           'lastMove': {
             from: move.from,
             to: move.to,
             die: move.die,
             player: this.myColor,
-            seq: this._moveSeq,
+            seq: seq,
             timestamp: firebase.database.ServerValue.TIMESTAMP
-          },
-          'gameState/gameOver': {
-            winner: winner,
-            type: gameType
           }
-        });
-        return;
-      }
+        };
 
-      this._moveSeq++;
-      const updates = {
-        'gameState/board': newBoard,
-        'gameState/remainingDice': newRemaining,
-        'lastMove': {
-          from: move.from,
-          to: move.to,
-          die: move.die,
-          player: this.myColor,
-          seq: this._moveSeq,
-          timestamp: firebase.database.ServerValue.TIMESTAMP
+        if (this._isGameOver(board)) {
+          const winner = this._getWinner(board);
+          const gameType = this._getGameType(board, winner);
+          updates['gameState/gameOver'] = { winner, type: gameType };
         }
-      };
 
-      await this.db.ref('rooms/' + this.roomId).update(updates);
-
-    } catch (err) {
-      console.error('Make move error:', err);
-    }
+        await this.db.ref('rooms/' + roomId).update(updates);
+      } catch (err) {
+        console.error('Make move error:', err);
+      }
+    });
   }
 
   // ─── Undo Move (sync board state back to Firebase) ────────
 
   async undoToState(board, remainingDice) {
     if (!this.roomId) return;
-    try {
-      await this.db.ref('rooms/' + this.roomId + '/gameState').update({
-        board: board,
-        remainingDice: remainingDice
-      });
-      // Decrement move seq so the lastMove listener doesn't re-apply
-      if (this._moveSeq > 0) this._moveSeq--;
-    } catch (err) {
-      console.error('Undo sync error:', err);
-    }
+
+    const boardCopy = [...board];
+    const remainingCopy = [...remainingDice];
+    const roomId = this.roomId;
+
+    // Decrement move seq so the lastMove listener doesn't re-apply
+    if (this._moveSeq > 0) this._moveSeq--;
+
+    // Queue after any pending makeMove to ensure undo overwrites the move
+    this._writeQueue = this._writeQueue.then(async () => {
+      try {
+        await this.db.ref('rooms/' + roomId + '/gameState').update({
+          board: boardCopy,
+          remainingDice: remainingCopy
+        });
+      } catch (err) {
+        console.error('Undo sync error:', err);
+      }
+    });
   }
 
   // ─── Confirm Turn ───────────────────────────────────────────────
@@ -908,7 +896,8 @@ class OnlineGame {
             nickname: pdata.nickname || 'Anonim',
             color: pdata.color,
             ready: true,
-            isHost: pid === hostId
+            isHost: pid === hostId,
+            coins: pdata.coins || 0
           });
         }
 
@@ -951,6 +940,17 @@ class OnlineGame {
         // Turn change
         if (gs.currentPlayer !== this.game.state.currentPlayer) {
           this.game.onlineTurnChanged(gs.currentPlayer, gs.turnStartedAt, gs.timer);
+        }
+
+        // Board sync for opponent's undos (board changed while it's still their turn)
+        if (gs.board && gs.currentPlayer !== this.myColor) {
+          const remote = JSON.stringify(gs.board);
+          const local = JSON.stringify(this.game.state.board);
+          if (remote !== local) {
+            this.game.state.board = gs.board;
+            this.game.state.remainingDice = gs.remainingDice || [];
+            this.game.renderAll();
+          }
         }
 
         // Sync timer data from Firebase
@@ -1074,7 +1074,8 @@ class OnlineGame {
         nickname: p.nickname,
         color: p.color,
         ready: p.ready,
-        isHost: p.isHost
+        isHost: p.isHost,
+        coins: p.coins || 0
       })),
       doublingCube: { value: 1, owner: null, offered: false, offeredBy: null }
     };
