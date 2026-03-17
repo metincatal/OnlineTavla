@@ -15,6 +15,7 @@ class OnlineGame {
     this._isHost = false;
     this._presenceRef = null;
     this._disconnectRefs = [];  // onDisconnect refs to cancel on clean leave
+    this._serverTimeOffset = 0;
   }
 
   // ─── OderId (persistent player identity) ───────────────────────
@@ -87,6 +88,13 @@ class OnlineGame {
 
         // Start listening to online count
         this._listenOnlineCount();
+
+        // Track server time offset for timer sync
+        const offsetRef = this.db.ref('.info/serverTimeOffset');
+        const offsetListener = offsetRef.on('value', snap => {
+          this._serverTimeOffset = snap.val() || 0;
+        });
+        this._listeners.push({ ref: offsetRef, event: 'value', fn: offsetListener });
 
         resolve();
       } catch (err) {
@@ -257,7 +265,8 @@ class OnlineGame {
       nickname: nickname,
       color: 'white',
       ready: false,
-      connected: true
+      connected: true,
+      coins: APP_SETTINGS.coins
     });
 
     // onDisconnect: mark player disconnected
@@ -359,7 +368,8 @@ class OnlineGame {
         nickname: nickname,
         color: 'black',
         ready: false,
-        connected: true
+        connected: true,
+        coins: APP_SETTINGS.coins
       });
 
       // onDisconnect
@@ -632,10 +642,6 @@ class OnlineGame {
         return;
       }
 
-      // Check if turn should change
-      const hasMovesLeft = newRemaining.length > 0 &&
-        this._hasValidMoves(newBoard, isWhite, newRemaining);
-
       this._moveSeq++;
       const updates = {
         'gameState/board': newBoard,
@@ -649,14 +655,6 @@ class OnlineGame {
           timestamp: firebase.database.ServerValue.TIMESTAMP
         }
       };
-
-      if (!hasMovesLeft) {
-        const nextPlayer = this.myColor === 'white' ? 'black' : 'white';
-        updates['gameState/currentPlayer'] = nextPlayer;
-        updates['gameState/dice'] = [];
-        updates['gameState/remainingDice'] = [];
-        updates['gameState/phase'] = 'rolling';
-      }
 
       await this.db.ref('rooms/' + this.roomId).update(updates);
 
@@ -678,6 +676,42 @@ class OnlineGame {
       if (this._moveSeq > 0) this._moveSeq--;
     } catch (err) {
       console.error('Undo sync error:', err);
+    }
+  }
+
+  // ─── Confirm Turn ───────────────────────────────────────────────
+
+  async confirmTurn(nextPlayer, timerUpdate) {
+    if (!this.roomId) return;
+    try {
+      const updates = {
+        'gameState/currentPlayer': nextPlayer,
+        'gameState/dice': [],
+        'gameState/remainingDice': [],
+        'gameState/phase': 'rolling',
+        'gameState/turnStartedAt': firebase.database.ServerValue.TIMESTAMP
+      };
+      if (timerUpdate) {
+        updates['gameState/timer/' + timerUpdate.color + '/bonusRemaining'] = timerUpdate.bonusRemaining;
+      }
+      await this.db.ref('rooms/' + this.roomId).update(updates);
+    } catch (err) {
+      console.error('Confirm turn error:', err);
+    }
+  }
+
+  // ─── Timeout Loss ─────────────────────────────────────────────
+
+  async timeoutLoss(loser) {
+    if (!this.roomId) return;
+    const winner = loser === 'white' ? 'black' : 'white';
+    try {
+      await this.db.ref('rooms/' + this.roomId + '/gameState/gameOver').set({
+        winner: winner,
+        type: 'timeout'
+      });
+    } catch (err) {
+      console.error('Timeout loss error:', err);
     }
   }
 
@@ -916,7 +950,16 @@ class OnlineGame {
 
         // Turn change
         if (gs.currentPlayer !== this.game.state.currentPlayer) {
-          this.game.onlineTurnChanged(gs.currentPlayer);
+          this.game.onlineTurnChanged(gs.currentPlayer, gs.turnStartedAt, gs.timer);
+        }
+
+        // Sync timer data from Firebase
+        if (gs.turnStartedAt) {
+          this.game._timerTurnStart = gs.turnStartedAt;
+        }
+        if (gs.timer) {
+          this.game._timerBonusWhite = gs.timer.white ? gs.timer.white.bonusRemaining : 60000;
+          this.game._timerBonusBlack = gs.timer.black ? gs.timer.black.bonusRemaining : 60000;
         }
       }
     });
@@ -996,7 +1039,12 @@ class OnlineGame {
         remainingDice: [...initialDice],
         phase: 'initial_roll',
         whiteRoll: whiteRoll,
-        blackRoll: blackRoll
+        blackRoll: blackRoll,
+        turnStartedAt: firebase.database.ServerValue.TIMESTAMP,
+        timer: {
+          white: { bonusRemaining: 60000 },
+          black: { bonusRemaining: 60000 }
+        }
       };
 
       await this.db.ref('rooms/' + roomCode).update({

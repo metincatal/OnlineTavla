@@ -17,6 +17,11 @@ class Game {
     this._schoolClosedShown = false;
     this._onlineRoomInfo = null;    // current online room info
     this._wrReadyState = false;     // waiting room ready toggle
+    this._timerInterval = null;
+    this._timerTurnStart = null;
+    this._timerBonusWhite = 60000;
+    this._timerBonusBlack = 60000;
+    this._coinDeducted = false;
   }
 
   init() {
@@ -45,6 +50,7 @@ class Game {
 
   showMenu() {
     this._hideAllScreens();
+    this._stopOnlineTimer();
     document.getElementById('menu-screen').style.display = 'flex';
     this.updateCoinDisplay();
   }
@@ -749,6 +755,7 @@ class Game {
     if (this.state.phase !== PHASES.MOVING) return;
     if (this._hitModalPending) return;
     const { currentPlayer, gameMode, board, remainingDice } = this.state;
+    if (gameMode === GAME_MODES.ONLINE && this.onlineGame && !this.onlineGame.isMyTurn(currentPlayer)) return;
     if (gameMode === GAME_MODES.AI && currentPlayer === this._aiPlayer) return;
 
     if (window.APP_SETTINGS && window.APP_SETTINGS.vurkac && point === this._vurkacLockedPoint) {
@@ -932,10 +939,16 @@ class Game {
     this._hadChoice = false;
     this._vurkacLockedPoint = null;
 
-    const nextPlayer = this.state.currentPlayer === PLAYERS.WHITE
-      ? PLAYERS.BLACK : PLAYERS.WHITE;
-
     const currentPlayer = this.state.currentPlayer;
+    const nextPlayer = currentPlayer === PLAYERS.WHITE ? PLAYERS.BLACK : PLAYERS.WHITE;
+
+    // Calculate bonus time used for online
+    let bonusUsed = 0;
+    if (this.state.gameMode === GAME_MODES.ONLINE && this._timerTurnStart) {
+      const elapsed = this._getServerTime() - this._timerTurnStart;
+      bonusUsed = Math.max(0, elapsed - 20000);
+    }
+
     const nextBarIdx = nextPlayer === PLAYERS.WHITE ? 0 : 25;
     const nextHasBar = nextPlayer === PLAYERS.WHITE ? this.state.board[nextBarIdx] > 0 : this.state.board[nextBarIdx] < 0;
 
@@ -950,14 +963,24 @@ class Game {
       this.state.phase = PHASES.ROLLING;
       this.updateUI();
       this.renderAll();
-      if (this.state.gameMode !== GAME_MODES.ONLINE) {
+      if (this.state.gameMode === GAME_MODES.ONLINE) {
+        // Update bonus, same player keeps turn
+        if (bonusUsed > 0) {
+          if (currentPlayer === PLAYERS.WHITE) this._timerBonusWhite = Math.max(0, this._timerBonusWhite - bonusUsed);
+          else this._timerBonusBlack = Math.max(0, this._timerBonusBlack - bonusUsed);
+        }
+        const timerUpdate = {
+          color: currentPlayer,
+          bonusRemaining: currentPlayer === PLAYERS.WHITE ? this._timerBonusWhite : this._timerBonusBlack
+        };
+        this.onlineGame.confirmTurn(currentPlayer, timerUpdate);
+      } else {
         setTimeout(() => this.rollDice(), 1000);
       }
       return;
     }
 
     this._schoolClosedShown = false;
-
     this.state.currentPlayer = nextPlayer;
     this.state.dice = [];
     this.state.remainingDice = [];
@@ -966,7 +989,18 @@ class Game {
     this.updateUI();
     this.renderAll();
 
-    if (this.state.gameMode !== GAME_MODES.ONLINE) {
+    if (this.state.gameMode === GAME_MODES.ONLINE) {
+      // Update bonus for player who just played
+      if (bonusUsed > 0) {
+        if (currentPlayer === PLAYERS.WHITE) this._timerBonusWhite = Math.max(0, this._timerBonusWhite - bonusUsed);
+        else this._timerBonusBlack = Math.max(0, this._timerBonusBlack - bonusUsed);
+      }
+      const timerUpdate = {
+        color: currentPlayer,
+        bonusRemaining: currentPlayer === PLAYERS.WHITE ? this._timerBonusWhite : this._timerBonusBlack
+      };
+      this.onlineGame.confirmTurn(nextPlayer, timerUpdate);
+    } else {
       setTimeout(() => this.rollDice(), 1000);
     }
   }
@@ -1034,6 +1068,10 @@ class Game {
 
     this.state.board = applyMove(this.state.board, move, currentPlayer);
     this.state.remainingDice = getDiceAfterMove(this.state.remainingDice, move.die);
+
+    if (this.state.gameMode === GAME_MODES.ONLINE) {
+      this.onlineGame.makeMove(move);
+    }
 
     if (isGameOver(this.state.board)) {
       const winner = getWinner(this.state.board);
@@ -1126,11 +1164,12 @@ class Game {
 
   endGame(winner, gameType, cubeValue = 1, betAmount = 0) {
     this.state.phase = PHASES.GAMEOVER;
+    this._stopOnlineTimer();
     this.confirmPending = false;
     this._hideConfirmButton();
     this.renderAll();
 
-    const labels = { normal: '', gammon: ' (Gamen!)', backgammon: ' (Backgammon!)', resign: ' (Teslim)', disconnect: ' (Bağlantı kesildi)', 'double-decline': ' (Çift reddedildi)' };
+    const labels = { normal: '', gammon: ' (Gamen!)', backgammon: ' (Backgammon!)', resign: ' (Teslim)', disconnect: ' (Bağlantı kesildi)', 'double-decline': ' (Çift reddedildi)', timeout: ' (Süre doldu)' };
     const winnerLabel = winner === PLAYERS.WHITE
       ? this.playerNames.white
       : this.playerNames.black;
@@ -1143,16 +1182,21 @@ class Game {
     const coinTextEl = document.getElementById('gameover-coin-text');
     if (this.state.gameMode === GAME_MODES.ONLINE && betAmount > 0) {
       const multiplier = points * cubeValue;
-      const coinChange = betAmount * multiplier;
+      const fullStake = betAmount * multiplier;
       const isMyWin = this.onlineGame && this.onlineGame.myColor === winner;
 
       if (isMyWin) {
-        APP_SETTINGS.coins = APP_SETTINGS.coins + coinChange;
-        coinTextEl.textContent = `+${coinChange} coin kazandınız!`;
+        // Get bet back + winnings
+        APP_SETTINGS.coins = APP_SETTINGS.coins + betAmount + fullStake;
+        coinTextEl.textContent = '+' + fullStake + ' coin kazandınız!';
         coinTextEl.style.color = 'var(--green)';
       } else {
-        APP_SETTINGS.coins = APP_SETTINGS.coins - coinChange;
-        coinTextEl.textContent = `-${coinChange} coin kaybettiniz`;
+        // Already lost betAmount at start, deduct additional if needed
+        const additionalLoss = fullStake - betAmount;
+        if (additionalLoss > 0) {
+          APP_SETTINGS.coins = APP_SETTINGS.coins - additionalLoss;
+        }
+        coinTextEl.textContent = '-' + fullStake + ' coin kaybettiniz';
         coinTextEl.style.color = 'var(--danger)';
       }
       coinResultEl.style.display = 'block';
@@ -1160,6 +1204,10 @@ class Game {
     } else {
       coinResultEl.style.display = 'none';
     }
+
+    // Hide "Yeni Oyun" button in online mode gameover
+    const goNewBtn = document.getElementById('gameover-new-game');
+    if (goNewBtn) goNewBtn.style.display = (this.state.gameMode === GAME_MODES.ONLINE) ? 'none' : '';
 
     document.getElementById('gameover-screen').style.display = 'flex';
   }
@@ -1218,7 +1266,6 @@ class Game {
     this.state.dice = gameState.dice || [];
     this.state.remainingDice = gameState.remainingDice || [];
 
-    // If initial_roll phase, keep it; otherwise determine from dice
     if (gameState.phase === 'initial_roll') {
       this.state.phase = PHASES.INITIAL_ROLL;
     } else {
@@ -1233,6 +1280,20 @@ class Game {
       this.playerNames.black = blackPlayer ? blackPlayer.nickname : 'Siyah';
     }
 
+    // Deduct bet coins on match start
+    if (!this._coinDeducted && roomInfo && roomInfo.betAmount > 0) {
+      APP_SETTINGS.coins = APP_SETTINGS.coins - roomInfo.betAmount;
+      this._coinDeducted = true;
+      this.updateCoinDisplay();
+    }
+
+    // Init timer
+    this._timerTurnStart = gameState.turnStartedAt || null;
+    if (gameState.timer) {
+      this._timerBonusWhite = gameState.timer.white ? gameState.timer.white.bonusRemaining : 60000;
+      this._timerBonusBlack = gameState.timer.black ? gameState.timer.black.bonusRemaining : 60000;
+    }
+
     this.showGame();
     this.updateValidMoves();
     this.updateUI();
@@ -1240,7 +1301,6 @@ class Game {
   }
 
   async doOnlineInitialRoll(whiteRoll, blackRoll, firstPlayer, dice) {
-    // Animate the initial roll just like local/AI modes
     await this.diceManager.animateRoll([whiteRoll, blackRoll], 600, 'white');
     if (window.sounds) sounds.play('dice');
 
@@ -1250,13 +1310,22 @@ class Game {
       if (el) el.innerHTML = '';
     }, 2000);
 
-    // Set state to moving after animation
     this.state.dice = dice;
     this.state.remainingDice = [...dice];
     this.state.phase = PHASES.MOVING;
     this.updateValidMoves();
     this.updateUI();
     this.renderAll();
+
+    // Start timer after animation
+    this._timerTurnStart = this._getServerTime();
+    this._startOnlineTimer();
+
+    // Host resets turnStartedAt after animation delay
+    if (this.onlineGame && this.onlineGame._isHost) {
+      this.onlineGame.db.ref('rooms/' + this.onlineGame.roomId + '/gameState/turnStartedAt')
+        .set(firebase.database.ServerValue.TIMESTAMP).catch(() => {});
+    }
   }
 
   async onlineRollReceived(dice, player) {
@@ -1296,7 +1365,7 @@ class Game {
     this.renderAll();
   }
 
-  onlineTurnChanged(currentPlayer) {
+  onlineTurnChanged(currentPlayer, turnStartedAt, timer) {
     this.state.currentPlayer = currentPlayer;
     this.state.phase = PHASES.ROLLING;
     this.state.dice = [];
@@ -1305,6 +1374,14 @@ class Game {
     this.moveHistory = [];
     this.confirmPending = false;
     this._vurkacLockedPoint = null;
+
+    // Update timer
+    if (turnStartedAt) this._timerTurnStart = turnStartedAt;
+    if (timer) {
+      this._timerBonusWhite = timer.white ? timer.white.bonusRemaining : this._timerBonusWhite;
+      this._timerBonusBlack = timer.black ? timer.black.bonusRemaining : this._timerBonusBlack;
+    }
+
     this.updateUI();
     this.renderAll();
   }
@@ -1376,7 +1453,6 @@ class Game {
       if (isOnline) {
         const myTurn = this.onlineGame && this.onlineGame.isMyTurn(currentPlayer);
         rollBtn.style.display = (phase === PHASES.ROLLING && myTurn) ? '' : 'none';
-        rollBtn.textContent = '🎲 Zar At';
         rollBtn.disabled = false;
       } else {
         rollBtn.style.display = 'none';
@@ -1417,6 +1493,12 @@ class Game {
     if (panelWhite) panelWhite.classList.toggle('active-turn', currentPlayer === PLAYERS.WHITE && phase === PHASES.MOVING);
     if (panelBlack) panelBlack.classList.toggle('active-turn', currentPlayer === PLAYERS.BLACK && phase === PHASES.MOVING);
 
+    // Hide new-game button in online mode
+    const newGameBtn = document.getElementById('new-game-btn');
+    if (newGameBtn) {
+      newGameBtn.style.display = isOnline ? 'none' : '';
+    }
+
     // Pip and off counts
     const whitePip = getPipCount(this.state.board, PLAYERS.WHITE);
     const blackPip = getPipCount(this.state.board, PLAYERS.BLACK);
@@ -1430,6 +1512,19 @@ class Game {
     if (wName) wName.textContent = this.playerNames.white;
     const bName = document.querySelector('#panel-black .sp-name');
     if (bName) bName.textContent = this.playerNames.black;
+
+    // Update coin display in panels (online mode)
+    if (isOnline && this._onlineRoomInfo) {
+      const wCoin = document.getElementById('white-coin');
+      const bCoin = document.getElementById('black-coin');
+      if (wCoin) wCoin.textContent = this._onlineRoomInfo.betAmount || '-';
+      if (bCoin) bCoin.textContent = this._onlineRoomInfo.betAmount || '-';
+      // Show coin containers
+      document.querySelectorAll('.sp-coin, .sp-coin-divider').forEach(el => el.style.display = '');
+    } else {
+      // Hide coin containers for non-online modes
+      document.querySelectorAll('.sp-coin, .sp-coin-divider').forEach(el => el.style.display = 'none');
+    }
   }
 
   showStatusMessage(msg) { /* no-op */ }
@@ -1443,6 +1538,99 @@ class Game {
     el.style.display = 'block';
     void el.offsetWidth;
     this._toastTimer = setTimeout(() => { el.style.display = 'none'; }, 2000);
+  }
+
+  // ─── Online Timer ─────────────────────────────────────────
+
+  _getServerTime() {
+    const offset = this.onlineGame ? this.onlineGame._serverTimeOffset || 0 : 0;
+    return Date.now() + offset;
+  }
+
+  _startOnlineTimer() {
+    this._stopOnlineTimer();
+    this._timerInterval = setInterval(() => this._updateTimerTick(), 100);
+  }
+
+  _stopOnlineTimer() {
+    if (this._timerInterval) {
+      clearInterval(this._timerInterval);
+      this._timerInterval = null;
+    }
+    // Clear timer displays
+    this._renderTimer('white', null, false);
+    this._renderTimer('black', null, false);
+  }
+
+  _updateTimerTick() {
+    if (!this.state || this.state.gameMode !== GAME_MODES.ONLINE) {
+      this._stopOnlineTimer();
+      return;
+    }
+    if (this.state.phase === PHASES.GAMEOVER || this.state.phase === PHASES.INITIAL_ROLL) return;
+
+    const currentPlayer = this.state.currentPlayer;
+    const turnStart = this._timerTurnStart;
+    if (!turnStart) return;
+
+    const elapsed = this._getServerTime() - turnStart;
+    const bonusRemaining = currentPlayer === PLAYERS.WHITE
+      ? this._timerBonusWhite : this._timerBonusBlack;
+
+    const BASE_TIME = 20000;
+    let displaySeconds, isBonus;
+
+    if (elapsed < BASE_TIME) {
+      displaySeconds = Math.ceil((BASE_TIME - elapsed) / 1000);
+      isBonus = false;
+    } else {
+      const bonusUsed = elapsed - BASE_TIME;
+      const bonusLeft = bonusRemaining - bonusUsed;
+      displaySeconds = Math.ceil(Math.max(0, bonusLeft) / 1000);
+      isBonus = true;
+
+      // Timeout!
+      if (bonusLeft <= 0) {
+        this._stopOnlineTimer();
+        if (this.onlineGame && this.onlineGame.myColor === currentPlayer) {
+          this.onlineGame.timeoutLoss(currentPlayer);
+        }
+        return;
+      }
+    }
+
+    // Update display
+    this._renderTimer('white', currentPlayer === 'white' ? displaySeconds : null,
+      currentPlayer === 'white' ? isBonus : false);
+    this._renderTimer('black', currentPlayer === 'black' ? displaySeconds : null,
+      currentPlayer === 'black' ? isBonus : false);
+  }
+
+  _renderTimer(color, seconds, isBonus) {
+    const timerEl = document.getElementById('timer-' + color);
+    if (!timerEl) return;
+
+    const textEl = timerEl.querySelector('.timer-text');
+    const progressEl = timerEl.querySelector('.timer-progress');
+    const circumference = 106.81;
+
+    if (seconds === null || seconds === undefined) {
+      timerEl.classList.remove('timer-active', 'timer-bonus', 'timer-warning');
+      if (textEl) textEl.textContent = '';
+      if (progressEl) progressEl.style.strokeDashoffset = circumference;
+      return;
+    }
+
+    timerEl.classList.add('timer-active');
+    timerEl.classList.toggle('timer-bonus', !!isBonus);
+    timerEl.classList.toggle('timer-warning', !!isBonus && seconds <= 10);
+
+    if (textEl) textEl.textContent = seconds;
+
+    const maxTime = isBonus ? 60 : 20;
+    const fraction = Math.min(1, seconds / maxTime);
+    const offset = circumference * (1 - fraction);
+    if (progressEl) progressEl.style.strokeDashoffset = offset;
   }
 
   // ─── Helpers ─────────────────────────────────────────────────
@@ -1632,6 +1820,10 @@ document.addEventListener('DOMContentLoaded', () => {
     if (game.state && game.state.phase !== PHASES.GAMEOVER) {
       const ok = await game.showModal('Ana menüye dönmek istiyor musunuz?');
       if (!ok) return;
+      // If online and game is active, resign first so opponent sees win
+      if (game.state.gameMode === GAME_MODES.ONLINE && game.onlineGame) {
+        game.onlineGame.resign();
+      }
     }
     if (game.onlineGame && game.onlineGame.roomId) {
       game.onlineGame.leaveRoom();
@@ -1747,6 +1939,11 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('settings-backdrop').addEventListener('click', closeSettings);
 
   document.getElementById('sm-nickname-edit').addEventListener('click', () => {
+    // Don't allow nickname change during online game
+    if (game.state && game.state.gameMode === GAME_MODES.ONLINE && game.state.phase !== PHASES.GAMEOVER) {
+      game.showGlobalNotification('Oyun sırasında takma ad değiştirilemez!', 'warning', 2000);
+      return;
+    }
     closeSettings();
     game.showNicknameModal((nick) => {
       smNickVal.textContent = nick;
