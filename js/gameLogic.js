@@ -266,36 +266,85 @@ function getGameType(board, winner) {
 }
 
 /**
- * Get all possible move sequences for current turn.
+ * Compute the maximum number of dice that can be used from the given state
+ * via DFS over all possible move sequences.
+ * Also tracks max total pips used (for the "must use higher die" tiebreaker).
  */
-function getPlayableSequences(board, player, dice) {
+function computeMaxDiceUsage(board, player, dice) {
   const moves = generateValidMoves(board, player, dice);
-  if (moves.length === 0) return { moves: [], canMove: false };
+  if (moves.length === 0) return { maxCount: 0, maxPips: 0 };
 
-  const hasTwoDice = dice.length >= 2;
-  if (!hasTwoDice) return { moves, canMove: true, mustUseBoth: false };
+  let maxCount = 0;
+  let maxPips = 0;
 
-  let canUseBoth = false;
   for (const move of moves) {
     const newBoard = applyMove(board, move, player);
-    const remainingDice = getDiceAfterMove(dice, move.die);
-    const followupMoves = generateValidMoves(newBoard, player, remainingDice);
-    if (followupMoves.length > 0) {
-      canUseBoth = true;
-      break;
+    const newDice = getDiceAfterMove(dice, move.die);
+    const sub = computeMaxDiceUsage(newBoard, player, newDice);
+    const count = 1 + sub.maxCount;
+    const pips = move.die + sub.maxPips;
+    if (count > maxCount || (count === maxCount && pips > maxPips)) {
+      maxCount = count;
+      maxPips = pips;
     }
   }
 
-  if (!canUseBoth && dice.length === 2 && dice[0] !== dice[1]) {
-    const maxDie = Math.max(...dice);
-    const movesWithMax = moves.filter(m => m.die === maxDie);
-    if (movesWithMax.length > 0) {
-      return { moves: movesWithMax, canMove: true, mustUseBoth: false, mustUseHigher: true };
+  return { maxCount, maxPips };
+}
+
+/**
+ * Filter valid moves to only those that lead to maximum dice usage.
+ * Enforces:
+ *   1) You must use as many dice as possible.
+ *   2) If only one die can be used, you must use the higher one.
+ *   3) If both dice can be used in different orders, all such first-moves are valid.
+ */
+function filterMovesForMaxDiceUsage(board, player, dice) {
+  const moves = generateValidMoves(board, player, dice);
+  if (moves.length === 0) return [];
+  if (dice.length <= 1) return moves; // only one die left, no filtering needed
+
+  const { maxCount, maxPips } = computeMaxDiceUsage(board, player, dice);
+
+  // For each candidate first-move, check if it leads to the global maximum
+  const filtered = [];
+  for (const move of moves) {
+    const newBoard = applyMove(board, move, player);
+    const newDice = getDiceAfterMove(dice, move.die);
+    const sub = computeMaxDiceUsage(newBoard, player, newDice);
+    const totalCount = 1 + sub.maxCount;
+    const totalPips = move.die + sub.maxPips;
+
+    if (totalCount === maxCount && totalPips === maxPips) {
+      filtered.push(move);
     }
-    return { moves, canMove: true, mustUseBoth: false, mustUseHigher: false };
   }
 
-  return { moves, canMove: true, mustUseBoth: canUseBoth };
+  // Fallback: if pip-exact match is too strict (e.g. multiple pip totals reach maxCount),
+  // allow all moves that reach maxCount
+  if (filtered.length === 0) {
+    for (const move of moves) {
+      const newBoard = applyMove(board, move, player);
+      const newDice = getDiceAfterMove(dice, move.die);
+      const sub = computeMaxDiceUsage(newBoard, player, newDice);
+      if (1 + sub.maxCount === maxCount) {
+        filtered.push(move);
+      }
+    }
+  }
+
+  // "Must use higher die" rule: if only 1 die can be used and dice differ,
+  // keep only moves using the higher die
+  if (maxCount === 1) {
+    const uniqueDice = [...new Set(dice)];
+    if (uniqueDice.length > 1) {
+      const maxDie = Math.max(...uniqueDice);
+      const higherMoves = filtered.filter(m => m.die === maxDie);
+      if (higherMoves.length > 0) return higherMoves;
+    }
+  }
+
+  return filtered;
 }
 
 function getDiceAfterMove(dice, usedDie) {
