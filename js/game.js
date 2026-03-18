@@ -712,15 +712,17 @@ class Game {
       const isWhiteSeq = currentPlayer === PLAYERS.WHITE;
       const isHitSeq = this.state.board[move.to] === (isWhiteSeq ? -1 : 1);
 
-      if ((currentPlayer === PLAYERS.WHITE && move.to === 25) ||
-          (currentPlayer === PLAYERS.BLACK && move.to === 0)) {
+      const isBearOff = (currentPlayer === PLAYERS.WHITE && move.to === 25) ||
+          (currentPlayer === PLAYERS.BLACK && move.to === 0);
+
+      let soundType = 'move';
+      if (isBearOff) {
         this.bearOffCounts[currentPlayer]++;
-        if (window.sounds) sounds.play('bearoff');
+        soundType = 'bearoff';
       } else if (isHitSeq) {
-        if (window.sounds) sounds.play('hit');
-      } else {
-        if (window.sounds) sounds.play('move');
+        soundType = 'hit';
       }
+      if (window.sounds) sounds.play(soundType);
 
       if (window.APP_SETTINGS && window.APP_SETTINGS.vurkac && isHitSeq) {
         const homeStart = isWhiteSeq ? 19 : 1;
@@ -732,7 +734,7 @@ class Game {
 
       this.state.board = applyMove(this.state.board, move, currentPlayer);
       this.state.remainingDice = getDiceAfterMove(this.state.remainingDice, move.die);
-      if (this.state.gameMode === GAME_MODES.ONLINE) this.onlineGame.makeMove(move);
+      if (this.state.gameMode === GAME_MODES.ONLINE) this.onlineGame.makeMove(move, soundType);
 
       if (isGameOver(this.state.board)) {
         const winner = getWinner(this.state.board);
@@ -866,15 +868,17 @@ class Game {
     const isWhitePlayer = currentPlayer === PLAYERS.WHITE;
     const isHit = this.state.board[move.to] === (isWhitePlayer ? -1 : 1);
 
-    if ((currentPlayer === PLAYERS.WHITE && move.to === 25) ||
-        (currentPlayer === PLAYERS.BLACK && move.to === 0)) {
+    const isBearOffPM = (currentPlayer === PLAYERS.WHITE && move.to === 25) ||
+        (currentPlayer === PLAYERS.BLACK && move.to === 0);
+
+    let soundTypePM = 'move';
+    if (isBearOffPM) {
       this.bearOffCounts[currentPlayer]++;
-      if (window.sounds) sounds.play('bearoff');
+      soundTypePM = 'bearoff';
     } else if (isHit) {
-      if (window.sounds) sounds.play('hit');
-    } else {
-      if (window.sounds) sounds.play('move');
+      soundTypePM = 'hit';
     }
+    if (window.sounds) sounds.play(soundTypePM);
 
     if (window.APP_SETTINGS && window.APP_SETTINGS.vurkac && isHit) {
       const homeStart = isWhitePlayer ? 19 : 1;
@@ -888,7 +892,7 @@ class Game {
     this.state.remainingDice = getDiceAfterMove(this.state.remainingDice, move.die);
 
     if (this.state.gameMode === GAME_MODES.ONLINE) {
-      this.onlineGame.makeMove(move);
+      this.onlineGame.makeMove(move, soundTypePM);
     }
 
     if (isGameOver(this.state.board)) {
@@ -1069,21 +1073,24 @@ class Game {
   _applyForcedMove(move) {
     const { currentPlayer } = this.state;
 
-    if ((currentPlayer === PLAYERS.WHITE && move.to === 25) ||
-        (currentPlayer === PLAYERS.BLACK && move.to === 0)) {
+    const isBearOffFM = (currentPlayer === PLAYERS.WHITE && move.to === 25) ||
+        (currentPlayer === PLAYERS.BLACK && move.to === 0);
+    const isHitFM = !isBearOffFM && this.state.board[move.to] === (currentPlayer === PLAYERS.WHITE ? -1 : 1);
+
+    let soundTypeFM = 'move';
+    if (isBearOffFM) {
       this.bearOffCounts[currentPlayer]++;
-      if (window.sounds) sounds.play('bearoff');
-    } else if (this.state.board[move.to] === (currentPlayer === PLAYERS.WHITE ? -1 : 1)) {
-      if (window.sounds) sounds.play('hit');
-    } else {
-      if (window.sounds) sounds.play('move');
+      soundTypeFM = 'bearoff';
+    } else if (isHitFM) {
+      soundTypeFM = 'hit';
     }
+    if (window.sounds) sounds.play(soundTypeFM);
 
     this.state.board = applyMove(this.state.board, move, currentPlayer);
     this.state.remainingDice = getDiceAfterMove(this.state.remainingDice, move.die);
 
     if (this.state.gameMode === GAME_MODES.ONLINE) {
-      this.onlineGame.makeMove(move);
+      this.onlineGame.makeMove(move, soundTypeFM);
     }
 
     if (isGameOver(this.state.board)) {
@@ -1218,9 +1225,17 @@ class Game {
       coinResultEl.style.display = 'none';
     }
 
-    // Hide "Yeni Oyun" button in online mode gameover
+    // Hide "Yeni Oyun" button in online mode gameover, show "Tekrar Oyna" instead
     const goNewBtn = document.getElementById('gameover-new-game');
+    const goRematchBtn = document.getElementById('gameover-rematch');
+    const rematchStatus = document.getElementById('gameover-rematch-status');
     if (goNewBtn) goNewBtn.style.display = (this.state.gameMode === GAME_MODES.ONLINE) ? 'none' : '';
+    if (goRematchBtn) {
+      goRematchBtn.style.display = (this.state.gameMode === GAME_MODES.ONLINE) ? '' : 'none';
+      goRematchBtn.disabled = false;
+      goRematchBtn.textContent = 'Tekrar Oyna';
+    }
+    if (rematchStatus) rematchStatus.style.display = 'none';
 
     document.getElementById('gameover-screen').style.display = 'flex';
   }
@@ -1320,7 +1335,6 @@ class Game {
 
   async doOnlineInitialRoll(whiteRoll, blackRoll, firstPlayer, dice) {
     await this.diceManager.animateRoll([whiteRoll, blackRoll], 600, 'white');
-    if (window.sounds) sounds.play('dice');
 
     showInitialRollDice(whiteRoll, blackRoll);
     setTimeout(() => {
@@ -1350,7 +1364,6 @@ class Game {
     // Animate dice roll for both players (dice already expanded from Firebase)
     const displayDice = dice.length <= 2 ? dice : dice.slice(0, 2);
     await this.diceManager.animateRoll(displayDice, 450, player);
-    if (window.sounds) sounds.play('dice');
 
     this.state.dice = [...dice];
     this.state.remainingDice = [...dice];
@@ -1362,19 +1375,11 @@ class Game {
   }
 
   onlineMoveReceived(gameState, move) {
-    // Play sound for opponent's move
-    const oldBoard = this.state.board;
-    const isBearOff = (move.to === 25 || move.to === 0);
-    const isHit = !isBearOff && oldBoard[move.to] !== undefined &&
-      ((move.player === 'white' && oldBoard[move.to] < 0) ||
-       (move.player === 'black' && oldBoard[move.to] > 0));
-
-    if (isBearOff) {
-      if (window.sounds) sounds.play('bearoff');
-    } else if (isHit) {
-      if (window.sounds) sounds.play('hit');
-    } else {
-      if (window.sounds) sounds.play('move');
+    // Play sound transmitted with the move (avoids race condition with board sync)
+    if (move.soundType && window.sounds) {
+      sounds.play(move.soundType);
+    } else if (window.sounds) {
+      sounds.play('move');
     }
 
     this.state.board = gameState.board;
@@ -1406,6 +1411,15 @@ class Game {
 
   onlineGameOver(winner, type, cubeValue = 1, betAmount = 0) {
     this.endGame(winner, type, cubeValue, betAmount);
+  }
+
+  onRematchRequested() {
+    const statusEl = document.getElementById('gameover-rematch-status');
+    const textEl = document.getElementById('gameover-rematch-text');
+    if (statusEl && textEl) {
+      textEl.textContent = 'Rakip tekrar oynamak istiyor!';
+      statusEl.style.display = 'block';
+    }
   }
 
   onlinePlayerLeft() {
@@ -1868,6 +1882,21 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   document.getElementById('gameover-new-game').addEventListener('click', () => { _u(); _tryFullscreen(); game.newGame(); });
+  document.getElementById('gameover-rematch').addEventListener('click', () => {
+    _u();
+    if (game.onlineGame && game.onlineGame.roomId) {
+      game.onlineGame.requestRematch();
+      const btn = document.getElementById('gameover-rematch');
+      btn.disabled = true;
+      btn.textContent = 'Rakip bekleniyor...';
+      const statusEl = document.getElementById('gameover-rematch-status');
+      const textEl = document.getElementById('gameover-rematch-text');
+      if (statusEl && textEl) {
+        textEl.textContent = 'Rakibin yanıtı bekleniyor...';
+        statusEl.style.display = 'block';
+      }
+    }
+  });
   document.getElementById('gameover-menu').addEventListener('click', () => {
     _u();
     if (game.onlineGame && game.onlineGame.roomId) {
