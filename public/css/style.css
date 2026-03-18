@@ -631,6 +631,9 @@ html, body {
   border-radius: 20px;
   padding: 28px 32px;
   width: min(400px, 88vw);
+  max-height: 90vh;
+  max-height: 90dvh;
+  overflow-y: auto;
   display: flex;
   flex-direction: column;
   gap: 24px;
@@ -1495,6 +1498,17 @@ input, button, select, textarea {
   border-radius: 10px;
   background: var(--bg);
 }
+.gameover-rematch-status {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--primary);
+  margin-bottom: 8px;
+  animation: rematch-pulse 1.5s ease-in-out infinite;
+}
+@keyframes rematch-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
 
 /* =============================================
    PANEL TIMER (circular countdown)
@@ -1598,4 +1612,161 @@ input, button, select, textarea {
 @media (max-height: 420px) and (orientation: landscape) {
   .board-dice .die, .die { width: 24px; height: 24px; border-radius: 6px; }
   .die .dot { width: 4px; height: 4px; }
+}
+
+/* =============================================
+   MOBILE PORTRAIT: Room Create & Waiting Room
+   ============================================= */
+
+@media (max-width: 700px) and (orientation: portrait) {
+  .setup-wrap {
+    padding: 18px 18px;
+    gap: 14px;
+    max-height: 85vh;
+    max-height: 85dvh;
+    border-radius: 16px;
+  }
+  .setup-title {
+    font-size: 0.95rem;
+  }
+
+  /* Room Create */
+  .room-create-wrap {
+    max-width: 340px;
+  }
+  .rc-field {
+    gap: 5px;
+  }
+  .rc-label {
+    font-size: 0.7rem;
+  }
+  .rc-input {
+    padding: 8px 12px;
+    font-size: 0.88rem;
+  }
+  .rc-type-btn, .rc-bet-btn {
+    padding: 7px 6px;
+    font-size: 0.75rem;
+    border-radius: 8px;
+    gap: 2px;
+  }
+  .rc-type-icon {
+    font-size: 0.95rem;
+  }
+  .rc-type-name {
+    font-size: 0.68rem;
+  }
+  .rc-toggle-row {
+    gap: 8px;
+  }
+  .rc-toggle-desc {
+    font-size: 0.66rem;
+  }
+
+  /* Waiting Room */
+  .waiting-room-wrap {
+    max-width: 340px;
+  }
+  .wr-room-code {
+    font-size: 1.2rem;
+    padding: 4px 12px;
+  }
+  .wr-info {
+    padding: 8px 12px;
+    gap: 3px;
+  }
+  .wr-info-row {
+    font-size: 0.76rem;
+  }
+  .wr-players {
+    gap: 12px;
+    padding: 6px 0;
+  }
+  .wr-player-slot {
+    width: 80px;
+    gap: 4px;
+  }
+  .wr-player-avatar {
+    width: 40px;
+    height: 40px;
+    font-size: 1.1rem;
+  }
+  .wr-player-name {
+    font-size: 0.75rem;
+  }
+  .wr-vs {
+    font-size: 0.85rem;
+  }
+  .wr-ready-status {
+    font-size: 0.66rem;
+  }
+}
+
+/* Extra-small mobile height (e.g. iPhone SE, small Android) */
+@media (max-height: 700px) and (orientation: portrait) {
+  .setup-wrap {
+    padding: 12px 14px;
+    gap: 8px;
+    max-height: 92vh;
+    max-height: 92dvh;
+  }
+  .setup-title {
+    font-size: 0.85rem;
+    margin: 0;
+  }
+  .room-create-wrap .rc-field {
+    gap: 3px;
+  }
+  .rc-label {
+    font-size: 0.65rem;
+  }
+  .rc-input {
+    padding: 6px 10px;
+    font-size: 0.82rem;
+  }
+  .rc-type-btn, .rc-bet-btn {
+    padding: 5px 4px;
+    font-size: 0.7rem;
+  }
+  .rc-type-icon {
+    font-size: 0.85rem;
+  }
+  .rc-toggle-row {
+    gap: 6px;
+  }
+  .rc-toggle-desc {
+    font-size: 0.6rem;
+  }
+  .toggle-switch {
+    transform: scale(0.85);
+  }
+  .setup-actions {
+    gap: 8px;
+  }
+  .setup-actions .menu-btn {
+    padding: 8px 14px;
+    font-size: 0.8rem;
+  }
+  .wr-players {
+    gap: 8px;
+    padding: 4px 0;
+  }
+  .wr-player-avatar {
+    width: 36px;
+    height: 36px;
+    font-size: 1rem;
+  }
+  .wr-player-name {
+    font-size: 0.7rem;
+  }
+  .wr-vs {
+    font-size: 0.75rem;
+  }
+  .wr-info {
+    padding: 6px 10px;
+    gap: 2px;
+  }
+  .wr-info-row {
+    font-size: 0.7rem;
+  }
 }

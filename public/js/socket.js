@@ -604,7 +604,7 @@ class OnlineGame {
 
   // ─── Make Move ─────────────────────────────────────────────────
 
-  async makeMove(move) {
+  async makeMove(move, soundType) {
     if (!this.roomId) return;
 
     // Snapshot local board state (already applied by game.js)
@@ -625,6 +625,7 @@ class OnlineGame {
             to: move.to,
             die: move.die,
             player: this.myColor,
+            soundType: soundType || 'move',
             seq: seq,
             timestamp: firebase.database.ServerValue.TIMESTAMP
           }
@@ -776,6 +777,77 @@ class OnlineGame {
     }
   }
 
+  // ─── Rematch ──────────────────────────────────────────────────
+
+  async requestRematch() {
+    if (!this.roomId) return;
+    const oderId = this._getOderId();
+    try {
+      await this.db.ref('rooms/' + this.roomId + '/rematch/' + oderId).set(true);
+    } catch (err) {
+      console.error('Rematch request error:', err);
+    }
+  }
+
+  _listenRematch(roomCode) {
+    const rematchRef = this.db.ref('rooms/' + roomCode + '/rematch');
+    this._addListener(rematchRef, 'value', async (snap) => {
+      const rematch = snap.val();
+      if (!rematch) return;
+
+      const oderId = this._getOderId();
+      const entries = Object.keys(rematch);
+      const opponentRequested = entries.some(id => id !== oderId && rematch[id] === true);
+      const iRequested = rematch[oderId] === true;
+
+      if (opponentRequested && !iRequested) {
+        this.game.onRematchRequested();
+      }
+
+      if (opponentRequested && iRequested && entries.length >= 2) {
+        // Both accepted — reset move counters
+        this._moveSeq = 0;
+        this._lastProcessedSeq = 0;
+
+        // Host starts new game
+        if (this._isHost) {
+          await this.db.ref('rooms/' + roomCode + '/rematch').remove();
+          await this.db.ref('rooms/' + roomCode + '/gameState').remove();
+          await this.db.ref('rooms/' + roomCode + '/lastMove').remove();
+
+          const playersSnap = await this.db.ref('rooms/' + roomCode + '/players').once('value');
+          const players = playersSnap.val() || {};
+          const infoSnap = await this.db.ref('rooms/' + roomCode + '/info').once('value');
+          const info = infoSnap.val() || {};
+
+          // Update each player's stored coins
+          const oderId = this._getOderId();
+          await this.db.ref('rooms/' + roomCode + '/players/' + oderId + '/coins').set(APP_SETTINGS.coins);
+
+          await this.db.ref('rooms/' + roomCode + '/info/status').set('playing');
+
+          const playerList = [];
+          for (const [pid, pdata] of Object.entries(players)) {
+            playerList.push({
+              oderId: pid,
+              nickname: pdata.nickname || 'Anonim',
+              color: pdata.color,
+              ready: true,
+              isHost: pid === info.hostId,
+              coins: pid === oderId ? APP_SETTINGS.coins : (pdata.coins || 0)
+            });
+          }
+
+          this._startGame(roomCode, playerList);
+        } else {
+          // Guest updates their own coins
+          const oderId = this._getOderId();
+          await this.db.ref('rooms/' + roomCode + '/players/' + oderId + '/coins').set(APP_SETTINGS.coins);
+        }
+      }
+    });
+  }
+
   // ─── Turn check ────────────────────────────────────────────────
 
   isMyTurn(currentPlayer) {
@@ -791,6 +863,7 @@ class OnlineGame {
     this._listenDoublingCube(roomCode);
     this._listenJoinRequests(roomCode);
     this._listenLastMove(roomCode);
+    this._listenRematch(roomCode);
   }
 
   _listenPlayers(roomCode) {
@@ -860,11 +933,15 @@ class OnlineGame {
 
   _listenGameState(roomCode) {
     const gsRef = this.db.ref('rooms/' + roomCode + '/gameState');
-    let firstLoad = true;
+    this._gsFirstLoad = true;
 
     this._addListener(gsRef, 'value', async (snap) => {
       const gs = snap.val();
-      if (!gs) return;
+      if (!gs) {
+        // gameState removed (e.g., rematch) — reset firstLoad
+        this._gsFirstLoad = true;
+        return;
+      }
 
       // Handle game over
       if (gs.gameOver) {
@@ -882,8 +959,8 @@ class OnlineGame {
       }
 
       // Game started — load initial state
-      if (firstLoad && gs.board) {
-        firstLoad = false;
+      if (this._gsFirstLoad && gs.board) {
+        this._gsFirstLoad = false;
 
         const infoSnap = await this.db.ref('rooms/' + roomCode + '/info').once('value').catch(() => null);
         const info = infoSnap && infoSnap.val() ? infoSnap.val() : {};
@@ -919,7 +996,7 @@ class OnlineGame {
       }
 
       // Subsequent updates: check for dice roll or turn change from opponent
-      if (!firstLoad && this.game.state && this.game.state.gameMode === 'online') {
+      if (!this._gsFirstLoad && this.game.state && this.game.state.gameMode === 'online') {
         // Phase transition from initial_roll to moving
         if (gs.phase === 'moving' && this.game.state.phase === 'initial_roll') {
           this.game.state.phase = PHASES.MOVING;
@@ -982,7 +1059,7 @@ class OnlineGame {
         const gs = gsSnap.val();
         if (!gs) return;
 
-        const moveData = { from: move.from, to: move.to, die: move.die, player: move.player };
+        const moveData = { from: move.from, to: move.to, die: move.die, player: move.player, soundType: move.soundType || 'move' };
         this.game.onlineMoveReceived(gs, moveData);
       }).catch(() => {});
     });
@@ -990,10 +1067,18 @@ class OnlineGame {
 
   _listenDoublingCube(roomCode) {
     const cubeRef = this.db.ref('rooms/' + roomCode + '/doublingCube');
+    let lastCubeState = null;
 
     this._addListener(cubeRef, 'value', (snap) => {
       const cube = snap.val();
       if (!cube) return;
+
+      // Prevent re-firing for the same state
+      const cubeKey = cube.offered + ':' + cube.offeredBy + ':' + cube.value;
+      if (cubeKey === lastCubeState) return;
+      lastCubeState = cubeKey;
+
+      console.log('[DoublingCube] update:', JSON.stringify(cube), 'myColor:', this.myColor);
 
       if (cube.offered && cube.offeredBy !== this.myColor) {
         // Opponent offered double
