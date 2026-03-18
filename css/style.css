@@ -1219,6 +1219,19 @@ input, button, select, textarea {
 .rc-type-icon { font-size: 1.1rem; }
 .rc-type-name { font-size: 0.76rem; }
 
+.rc-toggle-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.rc-toggle-info { flex: 1; }
+.rc-toggle-desc {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  margin-top: 2px;
+  line-height: 1.3;
+}
+
 /* =============================================
    LOBBY SCREEN
    ============================================= */
