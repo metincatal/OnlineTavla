@@ -708,21 +708,23 @@ class OnlineGame {
   // ─── Doubling Cube ─────────────────────────────────────────────
 
   async offerDouble() {
-    if (!this.roomId) return;
+    if (!this.roomId) return false;
 
     try {
       const cubeSnap = await this.db.ref('rooms/' + this.roomId + '/doublingCube').once('value');
       const cube = cubeSnap.val() || { value: 1, owner: null, offered: false, offeredBy: null };
 
-      if (cube.offered) return;
-      if (cube.owner !== null && cube.owner !== this.myColor) return;
+      if (cube.offered) return false;
+      if (cube.owner !== null && cube.owner !== this.myColor) return false;
 
       await this.db.ref('rooms/' + this.roomId + '/doublingCube').update({
         offered: true,
         offeredBy: this.myColor
       });
+      return true;
     } catch (err) {
       console.error('Offer double error:', err);
+      return false;
     }
   }
 
@@ -1086,10 +1088,13 @@ class OnlineGame {
       console.log('[DoublingCube] update:', JSON.stringify(cube), 'myColor:', this.myColor);
 
       if (cube.offered && cube.offeredBy !== this.myColor) {
-        // Opponent offered double
+        // Opponent offered double — show accept/decline modal
         this.game.onDoubleOffered(cube);
+      } else if (cube.offered && cube.offeredBy === this.myColor) {
+        // My own offer confirmed — update cube state (buttons already hidden)
+        this.game._cubeState = { value: cube.value, owner: cube.owner, offered: true };
       } else if (!cube.offered && cube.value > 1) {
-        // Double was accepted
+        // Double was accepted (or declined → gameOver handles that separately)
         this.game.onDoubleAccepted(cube);
       }
     });

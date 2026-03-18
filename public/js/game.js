@@ -1457,14 +1457,12 @@ class Game {
 
   onDoubleOffered(cube) {
     this._cubeState = { value: cube.value, owner: cube.owner, offered: true };
-    // Show double response modal to the opponent
-    if (this.onlineGame && cube.offeredBy !== this.onlineGame.myColor) {
-      const modal = document.getElementById('double-modal');
-      const text = document.getElementById('double-modal-text');
-      text.textContent = `Rakip bahsi ${cube.value * 2}x'e katlamak istiyor!`;
-      modal.style.display = 'flex';
-      modal.style.zIndex = '9000'; // ensure on top in fullscreen
-    }
+    // Show double response modal — listener already verified this is the opponent's offer
+    const modal = document.getElementById('double-modal');
+    const text = document.getElementById('double-modal-text');
+    text.textContent = `Rakip bahsi ${cube.value * 2}x'e katlamak istiyor!`;
+    modal.style.display = 'flex';
+    modal.style.zIndex = '9000';
     this._updateDoublingCubeDisplay(cube);
     this.updateUI();
   }
@@ -1868,7 +1866,7 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('confirm-turn-btn').addEventListener('click', () => game.confirmTurnEnd());
   document.getElementById('undo-btn').addEventListener('click', () => game.undo());
 
-  document.getElementById('double-btn').addEventListener('click', () => {
+  document.getElementById('double-btn').addEventListener('click', async () => {
     if (game.onlineGame) {
       // Check ownership before sending
       const cubeOwner = game._cubeState.owner;
@@ -1877,12 +1875,23 @@ document.addEventListener('DOMContentLoaded', () => {
         game.showToast('Bahis arttırma sırası rakipte');
         return;
       }
-      // Hide both buttons while waiting for response
-      game._cubeState.offered = true;
-      document.getElementById('double-btn').style.display = 'none';
-      document.getElementById('roll-btn').style.display = 'none';
-      game.showToast('Bahis teklifi gönderildi...');
-      game.onlineGame.offerDouble();
+      // Disable button to prevent double-click
+      const doubleBtn = document.getElementById('double-btn');
+      const rollBtn = document.getElementById('roll-btn');
+      doubleBtn.disabled = true;
+
+      const success = await game.onlineGame.offerDouble();
+      if (success) {
+        // Firebase write succeeded — hide buttons, wait for opponent response
+        game._cubeState.offered = true;
+        doubleBtn.style.display = 'none';
+        if (rollBtn) rollBtn.style.display = 'none';
+        game.showToast('Bahis teklifi gönderildi...');
+      } else {
+        // Firebase write failed or ownership check failed — restore UI
+        doubleBtn.disabled = false;
+        game.showToast('Bahis teklifi gönderilemedi');
+      }
     }
   });
 
