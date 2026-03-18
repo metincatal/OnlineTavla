@@ -251,6 +251,7 @@ class OnlineGame {
         name: (options.name || 'Oda').slice(0, 20),
         type: options.type || 'private',
         betAmount: options.betAmount || 100,
+        vurkac: options.vurkac !== false,
         hostId: oderId,
         status: 'waiting',
         createdAt: firebase.database.ServerValue.TIMESTAMP
@@ -1069,6 +1070,7 @@ class OnlineGame {
       name: info.name || 'Oda',
       type: info.type || 'private',
       betAmount: info.betAmount || 100,
+      vurkac: info.vurkac !== false,
       status: info.status || 'waiting',
       players: playerList.map(p => ({
         nickname: p.nickname,

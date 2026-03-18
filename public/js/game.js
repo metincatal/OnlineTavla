@@ -51,6 +51,7 @@ class Game {
   showMenu() {
     this._hideAllScreens();
     this._stopOnlineTimer();
+    this._coinDeducted = false;
     document.getElementById('menu-screen').style.display = 'flex';
     this.updateCoinDisplay();
   }
@@ -360,7 +361,8 @@ class Game {
     this.onlineGame.createRoomWithOptions({
       name: options.name,
       type: options.type,
-      betAmount: options.betAmount
+      betAmount: options.betAmount,
+      vurkac: options.vurkac !== false
     });
   }
 
@@ -455,9 +457,11 @@ class Game {
     }
     if (this.state.phase !== PHASES.ROLLING) return;
     if (this.state.gameMode === GAME_MODES.ONLINE) {
-      // Disable button immediately to prevent double-click
+      // Hide roll + double buttons immediately
       const rollBtn = document.getElementById('roll-btn');
-      if (rollBtn) rollBtn.disabled = true;
+      const doubleBtn = document.getElementById('double-btn');
+      if (rollBtn) { rollBtn.disabled = true; rollBtn.style.display = 'none'; }
+      if (doubleBtn) doubleBtn.style.display = 'none';
       this.onlineGame.rollDice();
       return;
     }
@@ -726,14 +730,18 @@ class Game {
         }
       }
 
-      if (this.state.gameMode === GAME_MODES.ONLINE) this.onlineGame.makeMove(move);
       this.state.board = applyMove(this.state.board, move, currentPlayer);
       this.state.remainingDice = getDiceAfterMove(this.state.remainingDice, move.die);
+      if (this.state.gameMode === GAME_MODES.ONLINE) this.onlineGame.makeMove(move);
 
       if (isGameOver(this.state.board)) {
         const winner = getWinner(this.state.board);
         if (window.sounds) sounds.play('gameover');
         this.renderAll();
+        if (this.state.gameMode === GAME_MODES.ONLINE) {
+          // Let Firebase listener handle endGame with proper betAmount/cubeValue
+          return;
+        }
         this.endGame(winner, getGameType(this.state.board, winner));
         return;
       }
@@ -887,6 +895,11 @@ class Game {
       const winner = getWinner(this.state.board);
       const gameType = getGameType(this.state.board, winner);
       if (window.sounds) sounds.play('gameover');
+      if (this.state.gameMode === GAME_MODES.ONLINE) {
+        // Let Firebase listener handle endGame with proper betAmount/cubeValue
+        this.renderAll();
+        return;
+      }
       this.endGame(winner, gameType);
       return;
     }
@@ -1280,6 +1293,11 @@ class Game {
       this.playerNames.black = blackPlayer ? blackPlayer.nickname : 'Siyah';
     }
 
+    // Apply room's vurkac setting
+    if (roomInfo && roomInfo.vurkac !== undefined) {
+      APP_SETTINGS.vurkac = roomInfo.vurkac;
+    }
+
     // Deduct bet coins on match start
     if (!this._coinDeducted && roomInfo && roomInfo.betAmount > 0) {
       APP_SETTINGS.coins = APP_SETTINGS.coins - roomInfo.betAmount;
@@ -1412,6 +1430,7 @@ class Game {
     document.getElementById('double-modal').style.display = 'none';
     this._updateDoublingCubeDisplay(cube);
     this.showToast(`Bahis ${cube.value}x'e katlandı!`);
+    this.updateUI(); // Re-show roll button for the offerer
   }
 
   _updateDoublingCubeDisplay(cube) {
@@ -1737,7 +1756,8 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('rc-create').addEventListener('click', () => {
     _u();
     const name = document.getElementById('rc-room-name').value.trim() || 'Oda';
-    game.startOnlineCreateRoom({ name, type: _rcType, betAmount: _rcBet });
+    const vurkac = document.getElementById('rc-vurkac').checked;
+    game.startOnlineCreateRoom({ name, type: _rcType, betAmount: _rcBet, vurkac });
   });
 
   // ─── Lobby Screen ─────────────────────────────────────────
@@ -1801,7 +1821,13 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('undo-btn').addEventListener('click', () => game.undo());
 
   document.getElementById('double-btn').addEventListener('click', () => {
-    if (game.onlineGame) game.onlineGame.offerDouble();
+    if (game.onlineGame) {
+      // Hide both buttons while waiting for response
+      document.getElementById('double-btn').style.display = 'none';
+      document.getElementById('roll-btn').style.display = 'none';
+      game.showToast('Bahis teklifi gönderildi...');
+      game.onlineGame.offerDouble();
+    }
   });
 
   // Double response modal
