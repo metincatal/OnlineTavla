@@ -1384,6 +1384,9 @@ class Game {
       this.onlineGame.db.ref('rooms/' + this.onlineGame.roomId + '/gameState/turnStartedAt')
         .set(firebase.database.ServerValue.TIMESTAMP).catch(() => {});
     }
+
+    // Check if the current player has no valid moves from the start
+    this._checkAutoPlay();
   }
 
   async onlineRollReceived(dice, player) {
@@ -1398,14 +1401,16 @@ class Game {
     this.updateValidMoves();
     this.updateUI();
     this.renderAll();
+
+    // Check if the current player has no valid moves (e.g. bar piece can't enter)
+    this._checkAutoPlay();
   }
 
   onlineMoveReceived(gameState, move) {
-    // Play sound transmitted with the move (avoids race condition with board sync)
-    if (move.soundType && window.sounds) {
-      sounds.play(move.soundType);
-    } else if (window.sounds) {
-      sounds.play('move');
+    // Sound is played early in _listenLastMove (before async board read) for sync.
+    // soundType===null means sound was already played; skip here to avoid double play.
+    if (move.soundType !== null && window.sounds) {
+      sounds.play(move.soundType || 'move');
     }
 
     this.state.board = gameState.board;
