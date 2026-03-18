@@ -653,8 +653,8 @@ class OnlineGame {
     const remainingCopy = [...remainingDice];
     const roomId = this.roomId;
 
-    // Decrement move seq so the lastMove listener doesn't re-apply
-    if (this._moveSeq > 0) this._moveSeq--;
+    // Note: do NOT decrement _moveSeq here — the next move after undo must get a
+    // fresh seq number that is strictly greater than _lastProcessedSeq on the opponent.
 
     // Queue after any pending makeMove to ensure undo overwrites the move
     this._writeQueue = this._writeQueue.then(async () => {
@@ -715,7 +715,7 @@ class OnlineGame {
       const cube = cubeSnap.val() || { value: 1, owner: null, offered: false, offeredBy: null };
 
       if (cube.offered) return false;
-      if (cube.owner !== null && cube.owner !== this.myColor) return false;
+      if (cube.owner != null && cube.owner !== this.myColor) return false;
 
       await this.db.ref('rooms/' + this.roomId + '/doublingCube').update({
         offered: true,
@@ -1061,12 +1061,17 @@ class OnlineGame {
 
       this._lastProcessedSeq = move.seq;
 
-      // Get current game state for board
+      // Play sound immediately (before async board read) to stay in sync with animation
+      const soundType = move.soundType || 'move';
+      if (window.sounds) sounds.play(soundType);
+
+      // Get current game state for board update
       this.db.ref('rooms/' + roomCode + '/gameState').once('value').then((gsSnap) => {
         const gs = gsSnap.val();
         if (!gs) return;
 
-        const moveData = { from: move.from, to: move.to, die: move.die, player: move.player, soundType: move.soundType || 'move' };
+        // Pass soundType=null so onlineMoveReceived doesn't play the sound again
+        const moveData = { from: move.from, to: move.to, die: move.die, player: move.player, soundType: null };
         this.game.onlineMoveReceived(gs, moveData);
       }).catch(() => {});
     });
