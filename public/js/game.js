@@ -22,6 +22,8 @@ class Game {
     this._timerBonusWhite = 60000;
     this._timerBonusBlack = 60000;
     this._coinDeducted = false;
+    this._cubeState = { value: 1, owner: null, offered: false };
+    this._lastWinner = null;  // for rematch: winner starts next game
   }
 
   init() {
@@ -395,6 +397,11 @@ class Game {
     this._autoPlaying = false;
     this._hadChoice = false;
     this._vurkacLockedPoint = null;
+    this._cubeState = { value: 1, owner: null, offered: false };
+    // Clear old dice display immediately (prevents stale dice on rematch)
+    if (this.diceManager) this.diceManager._removeCanvas();
+    const diceContainer = document.getElementById('dice-animation-container');
+    if (diceContainer) diceContainer.innerHTML = '';
     this.state = {
       board: [...INITIAL_BOARD],
       currentPlayer: PLAYERS.WHITE,
@@ -1184,6 +1191,7 @@ class Game {
 
   endGame(winner, gameType, cubeValue = 1, betAmount = 0) {
     this.state.phase = PHASES.GAMEOVER;
+    this._lastWinner = winner;
     this._stopOnlineTimer();
     this.confirmPending = false;
     this._hideConfirmButton();
@@ -1291,14 +1299,24 @@ class Game {
     this.initState(GAME_MODES.ONLINE);
     this.state.board = gameState.board;
     this.state.currentPlayer = gameState.currentPlayer;
-    this.state.dice = gameState.dice || [];
-    this.state.remainingDice = gameState.remainingDice || [];
 
-    if (gameState.phase === 'initial_roll') {
-      this.state.phase = PHASES.INITIAL_ROLL;
+    // For rematch (phase=moving with dice), defer dice display to animation
+    const isRematchStart = gameState.phase === 'moving' && gameState.dice && gameState.dice.length > 0;
+
+    if (isRematchStart) {
+      // Don't set dice yet — animation will handle it
+      this.state.dice = [];
+      this.state.remainingDice = [];
+      this.state.phase = PHASES.ROLLING; // temporarily rolling until animation
     } else {
-      this.state.phase = gameState.remainingDice && gameState.remainingDice.length > 0
-        ? PHASES.MOVING : PHASES.ROLLING;
+      this.state.dice = gameState.dice || [];
+      this.state.remainingDice = gameState.remainingDice || [];
+      if (gameState.phase === 'initial_roll') {
+        this.state.phase = PHASES.INITIAL_ROLL;
+      } else {
+        this.state.phase = gameState.remainingDice && gameState.remainingDice.length > 0
+          ? PHASES.MOVING : PHASES.ROLLING;
+      }
     }
 
     if (roomInfo && roomInfo.players) {
@@ -1331,6 +1349,14 @@ class Game {
     this.updateValidMoves();
     this.updateUI();
     this.renderAll();
+
+    // Trigger dice animation for rematch start
+    if (isRematchStart) {
+      // Set dice in state immediately (prevents Firebase listener re-trigger)
+      this.state.dice = [...gameState.dice];
+      this.onlineRollReceived(gameState.dice, gameState.currentPlayer);
+      this._startOnlineTimer();
+    }
   }
 
   async doOnlineInitialRoll(whiteRoll, blackRoll, firstPlayer, dice) {
@@ -1430,21 +1456,27 @@ class Game {
   // ─── Doubling Cube ────────────────────────────────────────────
 
   onDoubleOffered(cube) {
+    this._cubeState = { value: cube.value, owner: cube.owner, offered: true };
     // Show double response modal to the opponent
     if (this.onlineGame && cube.offeredBy !== this.onlineGame.myColor) {
       const modal = document.getElementById('double-modal');
       const text = document.getElementById('double-modal-text');
       text.textContent = `Rakip bahsi ${cube.value * 2}x'e katlamak istiyor!`;
       modal.style.display = 'flex';
+      modal.style.zIndex = '9000'; // ensure on top in fullscreen
     }
     this._updateDoublingCubeDisplay(cube);
+    this.updateUI();
   }
 
   onDoubleAccepted(cube) {
-    document.getElementById('double-modal').style.display = 'none';
+    this._cubeState = { value: cube.value, owner: cube.owner, offered: false };
+    const dm = document.getElementById('double-modal');
+    dm.style.display = 'none';
+    dm.style.zIndex = '';
     this._updateDoublingCubeDisplay(cube);
     this.showToast(`Bahis ${cube.value}x'e katlandı!`);
-    this.updateUI(); // Re-show roll button for the offerer
+    this.updateUI();
   }
 
   _updateDoublingCubeDisplay(cube) {
@@ -1492,12 +1524,14 @@ class Game {
       }
     }
 
-    // Double button: visible in online mode during rolling phase
+    // Double button: visible in online mode during rolling phase, if cube ownership allows
     const doubleBtn = document.getElementById('double-btn');
     if (doubleBtn) {
-      if (isOnline && phase === PHASES.ROLLING) {
+      if (isOnline && phase === PHASES.ROLLING && !this._cubeState.offered) {
         const myTurn = this.onlineGame && this.onlineGame.isMyTurn(currentPlayer);
-        doubleBtn.style.display = myTurn ? '' : 'none';
+        const myColor = this.onlineGame ? this.onlineGame.myColor : null;
+        const canDouble = this._cubeState.owner === null || this._cubeState.owner === myColor;
+        doubleBtn.style.display = (myTurn && canDouble) ? '' : 'none';
       } else {
         doubleBtn.style.display = 'none';
       }
@@ -1836,7 +1870,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
   document.getElementById('double-btn').addEventListener('click', () => {
     if (game.onlineGame) {
+      // Check ownership before sending
+      const cubeOwner = game._cubeState.owner;
+      const myColor = game.onlineGame.myColor;
+      if (cubeOwner !== null && cubeOwner !== myColor) {
+        game.showToast('Bahis arttırma sırası rakipte');
+        return;
+      }
       // Hide both buttons while waiting for response
+      game._cubeState.offered = true;
       document.getElementById('double-btn').style.display = 'none';
       document.getElementById('roll-btn').style.display = 'none';
       game.showToast('Bahis teklifi gönderildi...');
@@ -1846,11 +1888,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Double response modal
   document.getElementById('double-accept').addEventListener('click', () => {
-    document.getElementById('double-modal').style.display = 'none';
+    const dm = document.getElementById('double-modal');
+    dm.style.display = 'none';
+    dm.style.zIndex = '';
     if (game.onlineGame) game.onlineGame.respondToDouble(true);
   });
   document.getElementById('double-decline').addEventListener('click', () => {
-    document.getElementById('double-modal').style.display = 'none';
+    const dm = document.getElementById('double-modal');
+    dm.style.display = 'none';
+    dm.style.zIndex = '';
     if (game.onlineGame) game.onlineGame.respondToDouble(false);
   });
 

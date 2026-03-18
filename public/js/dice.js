@@ -304,7 +304,10 @@ class DiceManager {
 
     // Recalculate canvas on visibility change (phone sleep/wake) and resize
     document.addEventListener('visibilitychange', () => {
-      if (!document.hidden) setTimeout(() => this._recalcCanvas(), 100);
+      if (!document.hidden) {
+        setTimeout(() => this._recalcCanvas(), 100);
+        setTimeout(() => this._recalcCanvas(), 500); // backup redraw
+      }
     });
     window.addEventListener('resize', () => this._recalcCanvas());
   }
@@ -350,6 +353,13 @@ class DiceManager {
       this._finalDice[0].y = targetCY - 2;
       this._finalDice[1].x = leftHalfCX + separation / 2;
       this._finalDice[1].y = targetCY + 2;
+    }
+
+    // Re-snap angles to exact target rotations (fixes 1-1 display after tab switch)
+    for (const d of this._finalDice) {
+      const tgt = _FACE_TARGET[d.value] || { x: 0, y: 0 };
+      d.angX = tgt.x;
+      d.angY = tgt.y;
     }
 
     this._redrawStatic();
