@@ -64,8 +64,7 @@ class SoundManager {
     this.comp = comp;
   }
 
-  _dest()   { return this.comp || this.ctx.destination; }
-  _resume() { if (this.ctx && this.ctx.state === 'suspended') this.ctx.resume(); }
+  _dest() { return this.comp || this.ctx.destination; }
 
   // Her ses için offset (başlangıç) ve duration (süre) — saniye cinsinden
   // Orijinal dosyaya dokunulmaz, sadece bu aralık çalınır.
@@ -108,16 +107,25 @@ class SoundManager {
         Object.keys(this._rawArrays).forEach(k => this._decode(k));
       } catch (e) { console.warn('[sounds] lazy AudioContext hatası:', e); this.enabled = false; return; }
     }
-    this._resume();
-    try {
-      switch (name) {
-        case 'dice':     return this._playDice();
-        case 'move':     return this._playMove();
-        case 'hit':      return this._playHit();
-        case 'bearoff':  return this._playBearOff();
-        case 'gameover': return this._playGameOver();
-      }
-    } catch (e) { /* non-fatal */ }
+    // If context is suspended (desktop idle/tab-switch), resume first then play.
+    // ctx.resume() is async — do NOT play until it resolves to avoid the ~500ms delay.
+    if (this.ctx.state === 'suspended') {
+      this.ctx.resume().then(() => {
+        try { this._doPlay(name); } catch (e) { /* non-fatal */ }
+      });
+      return;
+    }
+    try { this._doPlay(name); } catch (e) { /* non-fatal */ }
+  }
+
+  _doPlay(name) {
+    switch (name) {
+      case 'dice':     return this._playDice();
+      case 'move':     return this._playMove();
+      case 'hit':      return this._playHit();
+      case 'bearoff':  return this._playBearOff();
+      case 'gameover': return this._playGameOver();
+    }
   }
 
   // ─── Ses metodları ───────────────────────────────────────────

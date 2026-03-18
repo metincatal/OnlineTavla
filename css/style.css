@@ -1484,6 +1484,69 @@ input, button, select, textarea {
   box-shadow: 0 2px 6px rgba(44,26,14,0.2);
 }
 
+/* =============================================
+   BET STAKE PANEL (board corner, online mode)
+   ============================================= */
+
+.bet-stake-panel {
+  position: absolute;
+  bottom: 10px;
+  right: 10px;
+  z-index: 6;
+  width: 72px;
+  padding: 8px 6px 6px;
+  background: linear-gradient(160deg, #D4940A 0%, #A36D08 60%, #8B5A06 100%);
+  border: 2px solid #7A4C04;
+  border-radius: 5px;
+  box-shadow:
+    0 3px 8px rgba(0,0,0,0.45),
+    inset 0 1px 0 rgba(255,220,80,0.35);
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+}
+
+/* Nail dots at corners */
+.bet-stake-nail {
+  position: absolute;
+  width: 6px; height: 6px;
+  background: radial-gradient(circle at 35% 35%, #FFE88A, #9C7010);
+  border-radius: 50%;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.5);
+}
+.bet-stake-nail-tl { top: 4px;  left: 4px;  }
+.bet-stake-nail-tr { top: 4px;  right: 4px; }
+.bet-stake-nail-bl { bottom: 4px; left: 4px;  }
+.bet-stake-nail-br { bottom: 4px; right: 4px; }
+
+.bet-stake-label {
+  font-size: 0.52rem;
+  font-weight: 900;
+  letter-spacing: 0.1em;
+  color: rgba(255,240,160,0.85);
+  text-transform: uppercase;
+  line-height: 1;
+}
+
+.bet-stake-amount {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  font-size: 0.8rem;
+  font-weight: 900;
+  color: #FFF9E0;
+  text-shadow: 0 1px 3px rgba(0,0,0,0.5);
+  line-height: 1;
+}
+
+.bet-stake-coin {
+  font-size: 0.6rem;
+  color: #FFE060;
+  margin-left: 1px;
+}
+
 /* (double-btn-style removed — now uses .double-circle-btn) */
 
 /* =============================================

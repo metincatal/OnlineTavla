@@ -337,12 +337,22 @@
         <div class="dc-value" id="dc-value">1</div>
       </div>
 
+      <!-- Bet stake panel (online mode only) -->
+      <div class="bet-stake-panel" id="bet-stake-panel" style="display:none;">
+        <div class="bet-stake-nail bet-stake-nail-tl"></div>
+        <div class="bet-stake-nail bet-stake-nail-tr"></div>
+        <div class="bet-stake-nail bet-stake-nail-bl"></div>
+        <div class="bet-stake-nail bet-stake-nail-br"></div>
+        <div class="bet-stake-label">BAHİS</div>
+        <div class="bet-stake-amount"><span id="bet-stake-amount">0</span><span class="bet-stake-coin">●</span></div>
+      </div>
+
       <!-- Center strip: dice left, action buttons right -->
       <div class="board-center-strip">
         <div id="dice-animation-container" class="board-dice"></div>
         <div class="board-action-zone">
           <div class="action-btn-row">
-            <button id="double-btn" class="board-circle-btn double-circle-btn" style="display:none" title="x2 Katla">×2</button>
+            <button id="double-btn" class="board-circle-btn double-circle-btn" style="display:none" title="Bahis Katla">×2</button>
             <button id="roll-btn" class="board-circle-btn roll-circle-btn" disabled style="display:none" title="Zar At">🎲</button>
           </div>
           <button id="undo-btn" class="board-circle-btn undo-circle-btn" style="display:none" title="Geri Al">↩</button>

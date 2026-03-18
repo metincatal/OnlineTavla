@@ -398,6 +398,14 @@ class Game {
     this._hadChoice = false;
     this._vurkacLockedPoint = null;
     this._cubeState = { value: 1, owner: null, offered: false };
+    // Reset doubling cube display
+    const dcEl = document.getElementById('doubling-cube-display');
+    if (dcEl) dcEl.style.display = 'none';
+    const dcValEl = document.getElementById('dc-value');
+    if (dcValEl) dcValEl.textContent = '1';
+    // Reset bet stake panel
+    const bsPanel = document.getElementById('bet-stake-panel');
+    if (bsPanel) bsPanel.style.display = 'none';
     // Clear old dice display immediately (prevents stale dice on rematch)
     if (this.diceManager) this.diceManager._removeCanvas();
     const diceContainer = document.getElementById('dice-animation-container');
@@ -1349,6 +1357,8 @@ class Game {
     this.updateValidMoves();
     this.updateUI();
     this.renderAll();
+    // Show bet stake panel with initial cube value
+    this._updateBetStakePanel(1);
 
     // Trigger dice animation for rematch start
     if (isRematchStart) {
@@ -1491,6 +1501,22 @@ class Game {
     } else {
       el.style.display = 'none';
     }
+    this._updateBetStakePanel(cube.value);
+  }
+
+  _updateBetStakePanel(cubeValue) {
+    const panel = document.getElementById('bet-stake-panel');
+    const amountEl = document.getElementById('bet-stake-amount');
+    if (!panel || !amountEl) return;
+    if (this.state && this.state.gameMode === GAME_MODES.ONLINE && this._onlineRoomInfo) {
+      const baseBet = (this._onlineRoomInfo && this._onlineRoomInfo.betAmount) || 0;
+      if (baseBet > 0) {
+        amountEl.textContent = baseBet * cubeValue;
+        panel.style.display = 'flex';
+        return;
+      }
+    }
+    panel.style.display = 'none';
   }
 
   // ─── Render ───────────────────────────────────────────────────
@@ -1530,6 +1556,8 @@ class Game {
     // Double button: visible in online mode during rolling phase, if cube ownership allows
     const doubleBtn = document.getElementById('double-btn');
     if (doubleBtn) {
+      // Always show the next multiplier on the button
+      doubleBtn.textContent = '×' + (this._cubeState.value * 2);
       if (isOnline && phase === PHASES.ROLLING && !this._cubeState.offered) {
         const myTurn = this.onlineGame && this.onlineGame.isMyTurn(currentPlayer);
         const myColor = this.onlineGame ? this.onlineGame.myColor : null;
