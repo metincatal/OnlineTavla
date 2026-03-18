@@ -811,6 +811,11 @@ class OnlineGame {
 
         // Host starts new game
         if (this._isHost) {
+          // Get last winner for rematch starting player
+          const gsSnap = await this.db.ref('rooms/' + roomCode + '/gameState').once('value').catch(() => null);
+          const gs = gsSnap && gsSnap.val() ? gsSnap.val() : {};
+          const lastWinner = (gs.gameOver && gs.gameOver.winner) || this.game._lastWinner || null;
+
           await this.db.ref('rooms/' + roomCode + '/rematch').remove();
           await this.db.ref('rooms/' + roomCode + '/gameState').remove();
           await this.db.ref('rooms/' + roomCode + '/lastMove').remove();
@@ -838,7 +843,7 @@ class OnlineGame {
             });
           }
 
-          this._startGame(roomCode, playerList);
+          this._startGame(roomCode, playerList, lastWinner);
         } else {
           // Guest updates their own coins
           const oderId = this._getOderId();
@@ -1103,35 +1108,56 @@ class OnlineGame {
 
   // ─── Start Game (host generates initial roll) ──────────────────
 
-  async _startGame(roomCode, playerList) {
+  async _startGame(roomCode, playerList, startingPlayer) {
     try {
-      // Generate initial roll (different dice)
-      let whiteRoll, blackRoll;
-      do {
-        whiteRoll = Math.floor(Math.random() * 6) + 1;
-        blackRoll = Math.floor(Math.random() * 6) + 1;
-      } while (whiteRoll === blackRoll);
+      let gameState;
 
-      const firstPlayer = whiteRoll > blackRoll ? 'white' : 'black';
-      const initialDice = firstPlayer === 'white'
-        ? [whiteRoll, blackRoll]
-        : [blackRoll, whiteRoll];
+      if (startingPlayer) {
+        // Rematch: winner starts directly, no initial roll
+        const d1 = Math.floor(Math.random() * 6) + 1;
+        const d2 = Math.floor(Math.random() * 6) + 1;
+        const expanded = (d1 === d2) ? [d1, d1, d1, d1] : [d1, d2];
 
-      // Start with initial_roll phase so both clients animate the dice
-      const gameState = {
-        board: [...INITIAL_BOARD],
-        currentPlayer: firstPlayer,
-        dice: initialDice,
-        remainingDice: [...initialDice],
-        phase: 'initial_roll',
-        whiteRoll: whiteRoll,
-        blackRoll: blackRoll,
-        turnStartedAt: firebase.database.ServerValue.TIMESTAMP,
-        timer: {
-          white: { bonusRemaining: 60000 },
-          black: { bonusRemaining: 60000 }
-        }
-      };
+        gameState = {
+          board: [...INITIAL_BOARD],
+          currentPlayer: startingPlayer,
+          dice: expanded,
+          remainingDice: [...expanded],
+          phase: 'moving',
+          turnStartedAt: firebase.database.ServerValue.TIMESTAMP,
+          timer: {
+            white: { bonusRemaining: 60000 },
+            black: { bonusRemaining: 60000 }
+          }
+        };
+      } else {
+        // First game: initial roll to determine who starts
+        let whiteRoll, blackRoll;
+        do {
+          whiteRoll = Math.floor(Math.random() * 6) + 1;
+          blackRoll = Math.floor(Math.random() * 6) + 1;
+        } while (whiteRoll === blackRoll);
+
+        const firstPlayer = whiteRoll > blackRoll ? 'white' : 'black';
+        const initialDice = firstPlayer === 'white'
+          ? [whiteRoll, blackRoll]
+          : [blackRoll, whiteRoll];
+
+        gameState = {
+          board: [...INITIAL_BOARD],
+          currentPlayer: firstPlayer,
+          dice: initialDice,
+          remainingDice: [...initialDice],
+          phase: 'initial_roll',
+          whiteRoll: whiteRoll,
+          blackRoll: blackRoll,
+          turnStartedAt: firebase.database.ServerValue.TIMESTAMP,
+          timer: {
+            white: { bonusRemaining: 60000 },
+            black: { bonusRemaining: 60000 }
+          }
+        };
+      }
 
       await this.db.ref('rooms/' + roomCode).update({
         gameState: gameState,
