@@ -14,7 +14,7 @@ class BackgammonAI {
   findBestSequence(board, player, remainingDice, movesSoFar, vurkacEnabled, lockedPoint) {
     if (remainingDice.length === 0) return movesSoFar;
 
-    let validMoves = generateValidMoves(board, player, remainingDice);
+    let validMoves = filterMovesForMaxDiceUsage(board, player, remainingDice);
 
     // Vur-kaç: filter out moves from locked point
     if (vurkacEnabled && lockedPoint !== null) {

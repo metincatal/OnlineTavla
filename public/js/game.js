@@ -938,7 +938,7 @@ class Game {
   }
 
   updateValidMoves() {
-    let moves = generateValidMoves(
+    let moves = filterMovesForMaxDiceUsage(
       this.state.board, this.state.currentPlayer, this.state.remainingDice
     );
     if (window.APP_SETTINGS && window.APP_SETTINGS.vurkac && this._vurkacLockedPoint !== null) {
