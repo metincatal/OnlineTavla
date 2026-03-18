@@ -1097,7 +1097,7 @@ class OnlineGame {
         this.game.onDoubleOffered(cube);
       } else if (cube.offered && cube.offeredBy === this.myColor) {
         // My own offer confirmed — update cube state (buttons already hidden)
-        this.game._cubeState = { value: cube.value, owner: cube.owner, offered: true };
+        this.game._cubeState = { value: cube.value, owner: cube.owner || null, offered: true };
       } else if (!cube.offered && cube.value > 1) {
         // Double was accepted (or declined → gameOver handles that separately)
         this.game.onDoubleAccepted(cube);

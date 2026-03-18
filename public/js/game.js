@@ -1483,11 +1483,17 @@ class Game {
   }
 
   onDoubleAccepted(cube) {
-    this._cubeState = { value: cube.value, owner: cube.owner, offered: false };
+    this._cubeState = { value: cube.value, owner: cube.owner || null, offered: false };
     const dm = document.getElementById('double-modal');
     dm.style.display = 'none';
     dm.style.zIndex = '';
     this._updateDoublingCubeDisplay(cube);
+    // Explicitly update double button text for next round
+    const doubleBtn = document.getElementById('double-btn');
+    if (doubleBtn) {
+      doubleBtn.textContent = '×' + (cube.value * 2);
+      doubleBtn.disabled = false;
+    }
     this.showToast(`Bahis ${cube.value}x'e katlandı!`);
     this.updateUI();
   }
