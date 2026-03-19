@@ -975,7 +975,6 @@ html, body {
   .dc-value { width: 26px; height: 26px; font-size: 0.7rem; }
   .bet-stake-panel { padding: 1px 14px 3px; }
   .bet-stake-val { font-size: 0.65rem; }
-  .bet-stake-coin { font-size: 0.5rem; }
   .bet-stake-nail { width: 4px; height: 4px; }
   .board-dice .die, .die { width: 30px; height: 30px; }
   .die .dot       { width: 5px; height: 5px; }
@@ -1511,7 +1510,7 @@ input, button, select, textarea {
   display: flex;
   flex-direction: row;
   align-items: center;
-  gap: 5px;
+  justify-content: center;
   white-space: nowrap;
 }
 
@@ -1525,12 +1524,6 @@ input, button, select, textarea {
 }
 .bet-stake-nail-l { bottom: 5px; left: 6px; }
 .bet-stake-nail-r { bottom: 5px; right: 6px; }
-
-.bet-stake-coin {
-  font-size: 0.65rem;
-  color: #FFE060;
-  text-shadow: 0 0 4px rgba(255,200,0,0.6);
-}
 
 .bet-stake-val {
   font-size: 0.8rem;
@@ -1653,12 +1646,78 @@ input, button, select, textarea {
   color: var(--accent);
 }
 
+/* =============================================
+   EMOJI REACTION PANEL (inside side panels)
+   ============================================= */
+
+.sp-emoji-panel {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 2px 0;
+}
+
+.sp-emoji-btn {
+  width: 28px;
+  height: 28px;
+  border: none;
+  background: transparent;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: transform 0.15s, background 0.15s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  line-height: 1;
+}
+.sp-emoji-btn:hover {
+  background: rgba(122,92,18,0.1);
+  transform: scale(1.15);
+}
+.sp-emoji-btn:active {
+  transform: scale(0.92);
+}
+.sp-emoji-btn.emoji-cooldown {
+  opacity: 0.4;
+  pointer-events: none;
+}
+
+/* ── Floating emoji reaction ── */
+.emoji-float {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%) scale(0);
+  font-size: 3.5rem;
+  z-index: 9999;
+  pointer-events: none;
+  animation: emojiPop 1.6s ease-out forwards;
+  text-shadow: 0 4px 20px rgba(0,0,0,0.25);
+}
+@keyframes emojiPop {
+  0%   { transform: translate(-50%, -50%) scale(0); opacity: 1; }
+  15%  { transform: translate(-50%, -50%) scale(1.3); opacity: 1; }
+  30%  { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+  70%  { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+  100% { transform: translate(-50%, -80%) scale(0.6); opacity: 0; }
+}
+
+/* Responsive overrides */
+@media (max-height: 600px) and (orientation: landscape) {
+  .sp-emoji-btn { width: 22px; height: 22px; font-size: 0.72rem; }
+  .emoji-float { font-size: 2.5rem; }
+}
+
 /* Mobile compact: timer + coin */
 @media (max-height: 520px) and (orientation: landscape) {
   .panel-timer { width: 30px; height: 30px; }
   .timer-text  { font-size: 0.56rem; }
   .sp-coin-val { font-size: 0.6rem; }
   .sp-coin-icon { font-size: 0.4rem; }
+  .sp-emoji-btn { width: 20px; height: 20px; font-size: 0.65rem; }
 }
 
 /* =============================================
