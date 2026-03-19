@@ -779,6 +779,36 @@ class OnlineGame {
     }
   }
 
+  // ─── Emoji Reactions ──────────────────────────────────────────
+
+  async sendEmoji(emoji) {
+    if (!this.roomId) return;
+    try {
+      await this.db.ref('rooms/' + this.roomId + '/emoji').set({
+        emoji: emoji,
+        from: this.myColor,
+        timestamp: firebase.database.ServerValue.TIMESTAMP
+      });
+    } catch (err) {
+      console.error('Emoji send error:', err);
+    }
+  }
+
+  _listenEmoji(roomCode) {
+    const emojiRef = this.db.ref('rooms/' + roomCode + '/emoji');
+    let lastTimestamp = 0;
+    this._addListener(emojiRef, 'value', (snap) => {
+      const data = snap.val();
+      if (!data || !data.emoji || !data.from) return;
+      // Only show opponent's emojis (own shown locally already)
+      if (data.from === this.myColor) return;
+      // Prevent re-firing same emoji
+      if (data.timestamp && data.timestamp <= lastTimestamp) return;
+      lastTimestamp = data.timestamp || Date.now();
+      this.game.showEmojiReaction(data.emoji);
+    });
+  }
+
   // ─── Rematch ──────────────────────────────────────────────────
 
   async requestRematch() {
@@ -871,6 +901,7 @@ class OnlineGame {
     this._listenJoinRequests(roomCode);
     this._listenLastMove(roomCode);
     this._listenRematch(roomCode);
+    this._listenEmoji(roomCode);
   }
 
   _listenPlayers(roomCode) {
@@ -920,6 +951,21 @@ class OnlineGame {
         this.game.showGlobalNotification('Rakip bağlantısı kesildi.', 'warning', 3000);
         this.game.onlineGameOver(winner, 'disconnect', cube.value, info.betAmount);
         return;
+      }
+
+      // Check if opponent left during gameover (went back to menu)
+      if (this.game.state && this.game.state.gameMode === 'online' &&
+          this.game.state.phase === 'gameover') {
+        if (!opponent) {
+          // Opponent removed from room entirely — they left
+          this.game.onOpponentLeftAfterGame();
+          return;
+        }
+        if (!opponent.connected) {
+          // Opponent disconnected after game
+          this.game.onOpponentLeftAfterGame();
+          return;
+        }
       }
 
       // Update waiting room
@@ -1034,6 +1080,7 @@ class OnlineGame {
           if (remote !== local) {
             this.game.state.board = gs.board;
             this.game.state.remainingDice = gs.remainingDice || [];
+            this.game._syncBearOffFromBoard();
             this.game.renderAll();
           }
         }

@@ -532,7 +532,15 @@ class Game {
     if (!hasPiece) return;
 
     const movesFromPoint = this.state.validMoves.filter(m => m.from === point);
-    if (movesFromPoint.length === 0) return;
+    if (movesFromPoint.length === 0) {
+      // Check if this point has raw moves that were filtered by max dice rule
+      const rawMoves = generateValidMoves(board, currentPlayer, this.state.remainingDice);
+      const rawFromPoint = rawMoves.filter(m => m.from === point);
+      if (rawFromPoint.length > 0) {
+        this.showToast('Bu hamle tüm zarları kullanmanızı engeller. Farklı bir hamle deneyin.');
+      }
+      return;
+    }
 
     const bestMove = movesFromPoint.reduce((best, m) => m.die > best.die ? m : best);
     this.applyPlayerMove(bestMove);
@@ -566,7 +574,15 @@ class Game {
       from, to, [...this.state.board], [...this.state.remainingDice]
     );
 
-    if (allSequences.length === 0) return;
+    if (allSequences.length === 0) {
+      // Check if raw moves exist for this from-to pair (blocked by max dice rule)
+      const rawMoves = generateValidMoves(this.state.board, currentPlayer, this.state.remainingDice);
+      const rawMatch = rawMoves.some(m => m.from === from && m.to === to);
+      if (rawMatch) {
+        this.showToast('Bu hamle tüm zarları kullanmanızı engeller. Farklı bir hamle deneyin.');
+      }
+      return;
+    }
 
     if (allSequences.length === 1) {
       this._applyMoveSequence(allSequences[0]);
@@ -936,6 +952,23 @@ class Game {
   // ─── Confirm turn end ─────────────────────────────────────────
 
   _showConfirmButton() {
+    // Safety check: verify maximum dice were used from the original position
+    if (this.moveHistory.length > 0 && this.state.remainingDice.length > 0) {
+      const originalBoard = this.moveHistory[0].board;
+      const originalDice = this.state.dice;
+      const { maxCount } = computeMaxDiceUsage(originalBoard, this.state.currentPlayer, originalDice);
+      const usedCount = originalDice.length - this.state.remainingDice.length;
+
+      if (usedCount < maxCount) {
+        // Player used fewer dice than possible — force undo and show warning
+        this.showToast('Tüm zarları kullanabilecek hamle var! Geri alınıyor...');
+        // Undo all moves back to original state
+        while (this.moveHistory.length > 0) {
+          this.undo();
+        }
+        return;
+      }
+    }
     this.confirmPending = true;
     this.updateUI();
   }
@@ -1055,7 +1088,18 @@ class Game {
       if (this.state.board[barIdx] !== 0) {
         this.showToast('Kırık pul giremedi');
       } else if (this.state.remainingDice.length > 0) {
-        this.showToast('Kalan zarlarla oynayacak hamle yok');
+        // Check if there are raw moves that got filtered by max dice rule
+        const rawMoves = generateValidMoves(this.state.board, this.state.currentPlayer, this.state.remainingDice);
+        if (rawMoves.length > 0) {
+          this.showToast('Tüm zarları kullanabilecek hamle var! Geri alınıyor...');
+          this._autoPlaying = false;
+          while (this.moveHistory.length > 0) {
+            this.undo();
+          }
+          return;
+        } else {
+          this.showToast('Kalan zarlarla oynayacak hamle yok');
+        }
       }
 
       if (this._hadChoice) {
@@ -1425,8 +1469,20 @@ class Game {
 
     this.state.board = gameState.board;
     this.state.remainingDice = gameState.remainingDice || [];
+    this._syncBearOffFromBoard();
     this.updateValidMoves();
     this.renderAll();
+  }
+
+  /** Compute bearOffCounts from board state (15 pieces each minus pieces on board) */
+  _syncBearOffFromBoard() {
+    let whiteOnBoard = 0, blackOnBoard = 0;
+    for (let i = 0; i < this.state.board.length; i++) {
+      if (this.state.board[i] > 0) whiteOnBoard += this.state.board[i];
+      else if (this.state.board[i] < 0) blackOnBoard += Math.abs(this.state.board[i]);
+    }
+    this.bearOffCounts.white = 15 - whiteOnBoard;
+    this.bearOffCounts.black = 15 - blackOnBoard;
   }
 
   onlineTurnChanged(currentPlayer, turnStartedAt, timer) {
@@ -1466,6 +1522,22 @@ class Game {
   onlinePlayerLeft() {
     document.getElementById('gameover-title').textContent = 'Rakip Ayrıldı';
     document.getElementById('gameover-screen').style.display = 'flex';
+  }
+
+  onOpponentLeftAfterGame() {
+    // Opponent left after game ended (went back to menu instead of rematch)
+    const rematchBtn = document.getElementById('gameover-rematch');
+    const statusEl = document.getElementById('gameover-rematch-status');
+    const textEl = document.getElementById('gameover-rematch-text');
+    if (rematchBtn) {
+      rematchBtn.disabled = true;
+      rematchBtn.textContent = 'Rakip ayrıldı';
+    }
+    if (statusEl && textEl) {
+      textEl.textContent = 'Rakip odadan ayrıldı.';
+      statusEl.style.display = 'block';
+    }
+    this.showToast('Rakip odadan ayrıldı');
   }
 
   // ─── Doubling Cube ────────────────────────────────────────────
@@ -1633,12 +1705,60 @@ class Game {
       if (bCoin) bCoin.textContent = myColor === 'black'
         ? APP_SETTINGS.coins
         : (bPlayer ? bPlayer.coins - bet : '-');
-      // Show coin containers
+      // Show coin containers and emoji panels
       document.querySelectorAll('.sp-coin, .sp-coin-divider').forEach(el => el.style.display = '');
+      // Show emoji only on my panel, hide on opponent's
+      const myPanel = myColor === 'white' ? 'white' : 'black';
+      const oppPanel = myColor === 'white' ? 'black' : 'white';
+      const myEmojiPanel = document.getElementById('emoji-panel-' + myPanel);
+      const oppEmojiPanel = document.getElementById('emoji-panel-' + oppPanel);
+      const myEmojiDivider = myEmojiPanel ? myEmojiPanel.previousElementSibling : null;
+      const oppEmojiDivider = oppEmojiPanel ? oppEmojiPanel.previousElementSibling : null;
+      if (myEmojiPanel) myEmojiPanel.style.display = '';
+      if (myEmojiDivider && myEmojiDivider.classList.contains('sp-emoji-divider')) myEmojiDivider.style.display = '';
+      if (oppEmojiPanel) oppEmojiPanel.style.display = 'none';
+      if (oppEmojiDivider && oppEmojiDivider.classList.contains('sp-emoji-divider')) oppEmojiDivider.style.display = 'none';
     } else {
-      // Hide coin containers for non-online modes
+      // Hide coin containers and emoji panels for non-online modes
       document.querySelectorAll('.sp-coin, .sp-coin-divider').forEach(el => el.style.display = 'none');
+      document.querySelectorAll('.sp-emoji-panel, .sp-emoji-divider').forEach(el => el.style.display = 'none');
     }
+  }
+
+  // ─── Emoji Reactions ────────────────────────────────────────
+
+  showEmojiReaction(emoji) {
+    const el = document.getElementById('emoji-float');
+    if (!el) return;
+    // Reset animation
+    el.style.display = 'none';
+    el.style.animation = 'none';
+    void el.offsetWidth;
+    el.textContent = emoji;
+    el.style.display = 'block';
+    el.style.animation = 'emojiPop 1.6s ease-out forwards';
+    clearTimeout(this._emojiFloatTimer);
+    this._emojiFloatTimer = setTimeout(() => { el.style.display = 'none'; }, 1700);
+  }
+
+  sendEmojiReaction(emoji) {
+    if (this._emojiCooldown) return;
+    this._emojiCooldown = true;
+
+    // Show locally
+    this.showEmojiReaction(emoji);
+
+    // Send to opponent via Firebase
+    if (this.state.gameMode === GAME_MODES.ONLINE && this.onlineGame) {
+      this.onlineGame.sendEmoji(emoji);
+    }
+
+    // Cooldown: disable all emoji buttons for 3s
+    document.querySelectorAll('.sp-emoji-btn').forEach(btn => btn.classList.add('emoji-cooldown'));
+    setTimeout(() => {
+      this._emojiCooldown = false;
+      document.querySelectorAll('.sp-emoji-btn').forEach(btn => btn.classList.remove('emoji-cooldown'));
+    }, 3000);
   }
 
   showStatusMessage(msg) { /* no-op */ }
@@ -1997,6 +2117,14 @@ document.addEventListener('DOMContentLoaded', () => {
       game.onlineGame.leaveRoom();
     }
     game.showMenu();
+  });
+
+  // ─── Emoji reaction buttons ───────────────────────────────
+  document.querySelectorAll('.sp-emoji-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const emoji = btn.getAttribute('data-emoji');
+      game.sendEmojiReaction(emoji);
+    });
   });
 
   // ─── Global notification close ─────────────────────────────
