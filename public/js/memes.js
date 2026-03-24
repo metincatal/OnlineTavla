@@ -1,22 +1,24 @@
 // ═══════════════════════════════════════════════════════════════
 //  Türkçe Meme GIF Veritabanı
 //  ─────────────────────────────────────────────────────────────
-//  Her memin url alanını gerçek bir Türkçe meme GIF linki ile
-//  değiştirebilirsiniz. Tenor veya Giphy'den GIF linki almak için:
+//  GIF eklemek/değiştirmek için:
 //    Tenor  → tenor.com'da GIF'e tıkla → "Share" → "Copy GIF Link"
 //    Giphy  → giphy.com'da GIF'e tıkla → "Copy Link" → "GIF Link"
 // ═══════════════════════════════════════════════════════════════
 
 const MEME_CATEGORIES = [
-  { id: 'zafer',    label: '🏆 Zafer'    },
-  { id: 'yikildim', label: '😭 Yıkıldım' },
-  { id: 'dalga',   label: '😏 Dalga'    },
-  { id: 'sok',     label: '😱 Şok'      },
+  { id: 'zafer',    label: 'Zafer'    },
+  { id: 'yikildim', label: 'Yıkıldım' },
+  { id: 'gulme',   label: 'Gülme'    },
+  { id: 'sinirli', label: 'Sinirli'  },
+  { id: 'dalga',   label: 'Dalga'    },
+  { id: 'sok',     label: 'Şok'      },
+  { id: 'gg',      label: 'GG'       },
 ];
 
 const MEME_LIST = [
 
-  // ── 🏆 Zafer ─────────────────────────────────────────────────
+  // ── Zafer ────────────────────────────────────────────────────
   {
     id: 'helal',
     category: 'zafer',
@@ -36,7 +38,7 @@ const MEME_LIST = [
     url: 'https://media.tenor.com/EnwXkUkTg6EAAAAC/barba-bambino.gif',
   },
 
-  // ── 😭 Yıkıldım ──────────────────────────────────────────────
+  // ── Yıkıldım ─────────────────────────────────────────────────
   {
     id: 'ay-be',
     category: 'yikildim',
@@ -56,7 +58,59 @@ const MEME_LIST = [
     url: 'https://media.tenor.com/nyjkgNBi_KMAAAAC/tamam-tamam-tamam.gif',
   },
 
-  // ── 😏 Dalga ─────────────────────────────────────────────────
+  // ── Gülme ────────────────────────────────────────────────────
+  {
+    id: 'can-yaman-gul',
+    category: 'gulme',
+    label: 'Can Yaman',
+    url: 'https://media1.tenor.com/m/wXTQrOKzpuwAAAAC/can-yaman-can.gif',
+  },
+  {
+    id: 'engin-gul',
+    category: 'gulme',
+    label: 'Engin Güler',
+    url: 'https://media1.tenor.com/m/3wXiACds33sAAAAC/engin-aky%C3%BCrek-the-ambassadors-daughter.gif',
+  },
+  {
+    id: 'el-risitas',
+    category: 'gulme',
+    label: 'El Risitas',
+    url: 'https://media1.tenor.com/m/3KONHAjX7LAAAAAC/el-risitas-risitaslaughing.gif',
+  },
+  {
+    id: 'ask-mavi-gul',
+    category: 'gulme',
+    label: 'Kahkaha',
+    url: 'https://media1.tenor.com/m/6IgDFRehI98AAAAC/a%C5%9Fk-ve-mavi-gif-emrah.gif',
+  },
+
+  // ── Sinirli ──────────────────────────────────────────────────
+  {
+    id: 'koksal-baba',
+    category: 'sinirli',
+    label: 'Köksal Baba',
+    url: 'https://media1.tenor.com/m/lLYQGDFnkn8AAAAC/koksal-baba.gif',
+  },
+  {
+    id: 'evren-sinirli',
+    category: 'sinirli',
+    label: 'Evren Sinirli',
+    url: 'https://media1.tenor.com/m/aH3tw90vTbsAAAAC/evren-sinirli.gif',
+  },
+  {
+    id: 'masaya-vur',
+    category: 'sinirli',
+    label: 'Masaya Vuruyor',
+    url: 'https://media1.tenor.com/m/TBT1DIuVy4EAAAAC/masaya-vurmak-sinirlenme.gif',
+  },
+  {
+    id: 'cukur-aras',
+    category: 'sinirli',
+    label: 'Çukur - Aras',
+    url: 'https://media1.tenor.com/m/-qGLz2cTaVkAAAAC/%C3%A7ukur-aras-bulut%C4%B0ynemli.gif',
+  },
+
+  // ── Dalga ────────────────────────────────────────────────────
   {
     id: 'gel-bakalim',
     category: 'dalga',
@@ -76,7 +130,7 @@ const MEME_LIST = [
     url: 'https://media.tenor.com/VCqchonbM1QAAAAC/turkish-turkiye.gif',
   },
 
-  // ── 😱 Şok ───────────────────────────────────────────────────
+  // ── Şok ──────────────────────────────────────────────────────
   {
     id: 'noluyo-lan',
     category: 'sok',
@@ -94,5 +148,31 @@ const MEME_LIST = [
     category: 'sok',
     label: 'Kafayı Sıyırdın',
     url: 'https://media.tenor.com/tMpDiC_IZlcAAAAC/deep-turkish-web-sen-kafay%C4%B1s%C4%B1y%C4%B1rm%C4%B1%C5%9Fs%C4%B1n.gif',
+  },
+
+  // ── GG / Saygı ───────────────────────────────────────────────
+  {
+    id: 'respect',
+    category: 'gg',
+    label: 'Respect!',
+    url: 'https://media1.tenor.com/m/EITlmmdqb5cAAAAC/respect-restecp.gif',
+  },
+  {
+    id: 'aybuke-pusat',
+    category: 'gg',
+    label: 'Her Yerdesen',
+    url: 'https://media1.tenor.com/m/PYjSZD5kyyUAAAAC/aybukepusat-heryerdesen.gif',
+  },
+  {
+    id: 'deep-web-gg',
+    category: 'gg',
+    label: 'Ne Bu Tantana',
+    url: 'https://media1.tenor.com/m/Df56RjhWBqQAAAAC/noluyo-karde%C5%9Fim-ne-bu-tantana-deep-web-turkish.gif',
+  },
+  {
+    id: 'turkun-armasi',
+    category: 'gg',
+    label: "Türk'ün Arması",
+    url: 'https://media1.tenor.com/m/SnPBvFAT1JwAAAAC/turkun-armasi.gif',
   },
 ];
