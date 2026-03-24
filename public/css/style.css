@@ -1647,7 +1647,7 @@ input, button, select, textarea {
 }
 
 /* =============================================
-   EMOJI REACTION PANEL (inside side panels)
+   MEME GIF PANEL (inside side panels)
    ============================================= */
 
 .sp-emoji-panel {
@@ -1655,69 +1655,177 @@ input, button, select, textarea {
   flex-direction: column;
   align-items: center;
   gap: 2px;
-  padding: 2px 0;
+  padding: 4px 0;
 }
 
-.sp-emoji-btn {
-  width: 28px;
-  height: 28px;
-  border: none;
-  background: transparent;
-  border-radius: 6px;
-  font-size: 0.9rem;
+/* GIF trigger button in side panel */
+.sp-meme-btn {
+  width: 34px;
+  height: 22px;
+  border: 1.5px solid rgba(122,92,18,0.45);
+  background: rgba(122,92,18,0.08);
+  border-radius: 5px;
+  font-size: 0.55rem;
+  font-weight: 800;
+  letter-spacing: 0.03em;
+  color: #7a5c12;
   cursor: pointer;
-  transition: transform 0.15s, background 0.15s;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0;
+  transition: transform 0.15s, background 0.15s, border-color 0.15s;
   line-height: 1;
 }
-.sp-emoji-btn:hover {
-  background: rgba(122,92,18,0.1);
-  transform: scale(1.15);
+.sp-meme-btn:hover {
+  background: rgba(122,92,18,0.18);
+  border-color: rgba(122,92,18,0.7);
+  transform: scale(1.08);
 }
-.sp-emoji-btn:active {
-  transform: scale(0.92);
-}
-.sp-emoji-btn.emoji-cooldown {
+.sp-meme-btn:active { transform: scale(0.93); }
+.sp-meme-btn.meme-cooldown {
   opacity: 0.4;
   pointer-events: none;
 }
 
-/* ── Floating emoji reaction ── */
-.emoji-float {
+/* ── Meme Picker Popup ── */
+.meme-picker {
   position: fixed;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%) scale(0);
-  font-size: 3.5rem;
-  z-index: 9999;
+  z-index: 8000;
+  background: #2a1e0d;
+  border: 1.5px solid rgba(180,130,40,0.55);
+  border-radius: 12px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.65);
+  padding: 8px;
+  width: 248px;
+  animation: memePickerIn 0.18s ease-out;
+}
+@keyframes memePickerIn {
+  from { opacity: 0; transform: scale(0.88) translateY(6px); }
+  to   { opacity: 1; transform: scale(1)    translateY(0);   }
+}
+
+.meme-picker-tabs {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 8px;
+  flex-wrap: wrap;
+}
+.meme-tab-btn {
+  flex: 1 1 auto;
+  padding: 4px 6px;
+  border: 1px solid rgba(180,130,40,0.3);
+  border-radius: 6px;
+  background: rgba(255,255,255,0.05);
+  color: #c8a04a;
+  font-size: 0.62rem;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.12s, border-color 0.12s;
+}
+.meme-tab-btn:hover  { background: rgba(180,130,40,0.2); }
+.meme-tab-btn.active {
+  background: rgba(180,130,40,0.3);
+  border-color: rgba(180,130,40,0.7);
+  color: #f0c060;
+}
+
+.meme-picker-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 5px;
+}
+.meme-item {
+  border-radius: 7px;
+  overflow: hidden;
+  cursor: pointer;
+  border: 1.5px solid rgba(180,130,40,0.15);
+  transition: transform 0.12s, border-color 0.12s;
+  background: #1a1208;
+  display: flex;
+  flex-direction: column;
+}
+.meme-item:hover {
+  transform: scale(1.06);
+  border-color: rgba(180,130,40,0.6);
+}
+.meme-item img {
+  width: 100%;
+  height: 58px;
+  object-fit: cover;
+  display: block;
+}
+.meme-item-label {
+  font-size: 0.5rem;
+  color: #c8a04a;
+  text-align: center;
+  padding: 3px 3px;
+  background: rgba(0,0,0,0.6);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ── Meme GIF Overlay (orta ekranda büyük gösterim) ── */
+.meme-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9500;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   pointer-events: none;
-  animation: emojiPop 1.6s ease-out forwards;
-  text-shadow: 0 4px 20px rgba(0,0,0,0.25);
 }
-@keyframes emojiPop {
-  0%   { transform: translate(-50%, -50%) scale(0); opacity: 1; }
-  15%  { transform: translate(-50%, -50%) scale(1.3); opacity: 1; }
-  30%  { transform: translate(-50%, -50%) scale(1); opacity: 1; }
-  70%  { transform: translate(-50%, -50%) scale(1); opacity: 1; }
-  100% { transform: translate(-50%, -80%) scale(0.6); opacity: 0; }
+.meme-overlay-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(0,0,0,0.45);
+  animation: memeBackdropIn 0.2s ease-out forwards;
+}
+@keyframes memeBackdropIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+.meme-overlay-content {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  animation: memePopIn 0.25s cubic-bezier(0.34,1.56,0.64,1) forwards;
+}
+@keyframes memePopIn {
+  from { opacity: 0; transform: scale(0.5); }
+  to   { opacity: 1; transform: scale(1); }
+}
+.meme-overlay-img {
+  max-width: min(320px, 80vw);
+  max-height: min(280px, 55vh);
+  border-radius: 12px;
+  box-shadow: 0 8px 40px rgba(0,0,0,0.7);
+  border: 2px solid rgba(180,130,40,0.5);
+}
+.meme-overlay-label {
+  background: rgba(42,30,13,0.9);
+  color: #f0c060;
+  font-size: 0.78rem;
+  font-weight: 700;
+  padding: 5px 14px;
+  border-radius: 20px;
+  border: 1px solid rgba(180,130,40,0.4);
+  letter-spacing: 0.02em;
 }
 
-/* Responsive overrides */
+/* Responsive */
 @media (max-height: 600px) and (orientation: landscape) {
-  .sp-emoji-btn { width: 22px; height: 22px; font-size: 0.72rem; }
-  .emoji-float { font-size: 2.5rem; }
+  .sp-meme-btn { width: 28px; height: 18px; font-size: 0.5rem; }
+  .meme-overlay-img { max-width: min(220px, 60vw); max-height: min(160px, 50vh); }
+  .meme-picker { width: 210px; }
 }
-
-/* Mobile compact: timer + coin */
 @media (max-height: 520px) and (orientation: landscape) {
   .panel-timer { width: 30px; height: 30px; }
   .timer-text  { font-size: 0.56rem; }
   .sp-coin-val { font-size: 0.6rem; }
   .sp-coin-icon { font-size: 0.4rem; }
-  .sp-emoji-btn { width: 20px; height: 20px; font-size: 0.65rem; }
+  .sp-meme-btn { width: 24px; height: 16px; font-size: 0.45rem; }
 }
 
 /* =============================================

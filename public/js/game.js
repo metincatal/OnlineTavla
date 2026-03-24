@@ -1725,40 +1725,130 @@ class Game {
     }
   }
 
-  // ─── Emoji Reactions ────────────────────────────────────────
+  // ─── Meme GIF Reactions ─────────────────────────────────────
 
-  showEmojiReaction(emoji) {
-    const el = document.getElementById('emoji-float');
-    if (!el) return;
+  showMemeReaction(memeUrl, memeLabel) {
+    const overlay = document.getElementById('meme-overlay');
+    const img     = document.getElementById('meme-overlay-img');
+    const label   = document.getElementById('meme-overlay-label');
+    if (!overlay || !img) return;
+
+    img.src = memeUrl;
+    if (label) label.textContent = memeLabel || '';
+
+    overlay.style.display = 'flex';
     // Reset animation
-    el.style.display = 'none';
-    el.style.animation = 'none';
-    void el.offsetWidth;
-    el.textContent = emoji;
-    el.style.display = 'block';
-    el.style.animation = 'emojiPop 1.6s ease-out forwards';
-    clearTimeout(this._emojiFloatTimer);
-    this._emojiFloatTimer = setTimeout(() => { el.style.display = 'none'; }, 1700);
+    const content = overlay.querySelector('.meme-overlay-content');
+    if (content) {
+      content.style.animation = 'none';
+      void content.offsetWidth;
+      content.style.animation = '';
+    }
+
+    clearTimeout(this._memeOverlayTimer);
+    this._memeOverlayTimer = setTimeout(() => {
+      overlay.style.display = 'none';
+    }, 3500);
   }
 
-  sendEmojiReaction(emoji) {
+  toggleMemePicker(triggerBtn) {
+    const picker = document.getElementById('meme-picker');
+    if (!picker) return;
+
+    // Close if already open from same button
+    if (picker.style.display !== 'none' && picker._trigger === triggerBtn) {
+      picker.style.display = 'none';
+      picker._trigger = null;
+      return;
+    }
+
+    // Build picker content if first open
+    this._buildMemePicker();
+
+    // Position near button
+    const rect = triggerBtn.getBoundingClientRect();
+    const pickerW = 248;
+    let left = rect.right + 6;
+    if (left + pickerW > window.innerWidth - 8) left = rect.left - pickerW - 6;
+    picker.style.left = left + 'px';
+    picker.style.top  = Math.min(rect.top, window.innerHeight - 260) + 'px';
+
+    picker.style.display = 'block';
+    picker._trigger = triggerBtn;
+  }
+
+  _buildMemePicker() {
+    const tabsEl = document.getElementById('meme-picker-tabs');
+    const gridEl = document.getElementById('meme-picker-grid');
+    if (!tabsEl || !gridEl || tabsEl._built) return;
+    tabsEl._built = true;
+
+    let activeCategory = MEME_CATEGORIES[0].id;
+
+    const renderGrid = (categoryId) => {
+      gridEl.innerHTML = '';
+      MEME_LIST.filter(m => m.category === categoryId).forEach(meme => {
+        const item = document.createElement('div');
+        item.className = 'meme-item';
+        item.innerHTML = `
+          <img src="${meme.url}" alt="${meme.label}" loading="lazy">
+          <div class="meme-item-label">${meme.label}</div>
+        `;
+        item.addEventListener('click', () => {
+          document.getElementById('meme-picker').style.display = 'none';
+          this.sendMemeReaction(meme.url, meme.label);
+        });
+        gridEl.appendChild(item);
+      });
+    };
+
+    MEME_CATEGORIES.forEach((cat, i) => {
+      const btn = document.createElement('button');
+      btn.className = 'meme-tab-btn' + (i === 0 ? ' active' : '');
+      btn.textContent = cat.label;
+      btn.addEventListener('click', () => {
+        tabsEl.querySelectorAll('.meme-tab-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        activeCategory = cat.id;
+        renderGrid(cat.id);
+      });
+      tabsEl.appendChild(btn);
+    });
+
+    renderGrid(activeCategory);
+  }
+
+  sendMemeReaction(memeUrl, memeLabel) {
     if (this._emojiCooldown) return;
     this._emojiCooldown = true;
 
     // Show locally
-    this.showEmojiReaction(emoji);
+    this.showMemeReaction(memeUrl, memeLabel);
 
-    // Send to opponent via Firebase
+    // Send to opponent via Firebase (reuse emoji channel with url as value)
     if (this.state.gameMode === GAME_MODES.ONLINE && this.onlineGame) {
-      this.onlineGame.sendEmoji(emoji);
+      this.onlineGame.sendEmoji(JSON.stringify({ url: memeUrl, label: memeLabel }));
     }
 
-    // Cooldown: disable all emoji buttons for 3s
-    document.querySelectorAll('.sp-emoji-btn').forEach(btn => btn.classList.add('emoji-cooldown'));
+    // Cooldown: disable GIF buttons for 4s
+    document.querySelectorAll('.sp-meme-btn').forEach(btn => btn.classList.add('meme-cooldown'));
     setTimeout(() => {
       this._emojiCooldown = false;
-      document.querySelectorAll('.sp-emoji-btn').forEach(btn => btn.classList.remove('emoji-cooldown'));
-    }, 3000);
+      document.querySelectorAll('.sp-meme-btn').forEach(btn => btn.classList.remove('meme-cooldown'));
+    }, 4000);
+  }
+
+  // Backward-compat: called by socket.js
+  showEmojiReaction(raw) {
+    try {
+      const data = JSON.parse(raw);
+      if (data && data.url) {
+        this.showMemeReaction(data.url, data.label || '');
+        return;
+      }
+    } catch (_) {}
+    // Fallback: plain emoji text (old format)
+    this.showMemeReaction('', raw);
   }
 
   showStatusMessage(msg) { /* no-op */ }
@@ -2119,17 +2209,27 @@ document.addEventListener('DOMContentLoaded', () => {
     game.showMenu();
   });
 
-  // ─── Emoji reaction buttons ───────────────────────────────
-  document.querySelectorAll('.sp-emoji-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const emoji = btn.getAttribute('data-emoji');
-      game.sendEmojiReaction(emoji);
+  // ─── Meme GIF buttons ─────────────────────────────────────
+  document.querySelectorAll('.sp-meme-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      game.toggleMemePicker(btn);
     });
   });
 
   // ─── Global notification close ─────────────────────────────
   document.getElementById('global-notification-close').addEventListener('click', () => {
     document.getElementById('global-notification').style.display = 'none';
+  });
+
+  // ─── Close meme picker on outside click ───────────────────
+  document.addEventListener('click', (e) => {
+    const picker = document.getElementById('meme-picker');
+    if (!picker || picker.style.display === 'none') return;
+    if (!picker.contains(e.target) && !e.target.closest('.sp-meme-btn')) {
+      picker.style.display = 'none';
+      picker._trigger = null;
+    }
   });
 
   // ─── Setup screen (local game player config) ────────────────

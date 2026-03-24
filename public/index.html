@@ -327,12 +327,7 @@
     </div>
     <div class="sp-divider sp-emoji-divider" style="display:none;"></div>
     <div class="sp-emoji-panel" id="emoji-panel-black" style="display:none;">
-      <button class="sp-emoji-btn" data-emoji="🫠">🫠</button>
-      <button class="sp-emoji-btn" data-emoji="🤌">🤌</button>
-      <button class="sp-emoji-btn" data-emoji="💀">💀</button>
-      <button class="sp-emoji-btn" data-emoji="🫡">🫡</button>
-      <button class="sp-emoji-btn" data-emoji="🎭">🎭</button>
-      <button class="sp-emoji-btn" data-emoji="🦊">🦊</button>
+      <button class="sp-meme-btn" id="meme-btn-black" title="Meme Gönder">GIF</button>
     </div>
   </div>
 
@@ -392,12 +387,7 @@
     </div>
     <div class="sp-divider sp-emoji-divider" style="display:none;"></div>
     <div class="sp-emoji-panel" id="emoji-panel-white" style="display:none;">
-      <button class="sp-emoji-btn" data-emoji="🫠">🫠</button>
-      <button class="sp-emoji-btn" data-emoji="🤌">🤌</button>
-      <button class="sp-emoji-btn" data-emoji="💀">💀</button>
-      <button class="sp-emoji-btn" data-emoji="🫡">🫡</button>
-      <button class="sp-emoji-btn" data-emoji="🎭">🎭</button>
-      <button class="sp-emoji-btn" data-emoji="🦊">🦊</button>
+      <button class="sp-meme-btn" id="meme-btn-white" title="Meme Gönder">GIF</button>
     </div>
   </div>
 
@@ -482,8 +472,20 @@
   </div>
 </div>
 
-<!-- ═══ EMOJI REACTION FLOAT ══════════════════════════════════════ -->
-<div id="emoji-float" class="emoji-float" style="display:none;"></div>
+<!-- ═══ MEME GIF OVERLAY ══════════════════════════════════════════ -->
+<div id="meme-overlay" class="meme-overlay" style="display:none;">
+  <div class="meme-overlay-backdrop"></div>
+  <div class="meme-overlay-content">
+    <img id="meme-overlay-img" class="meme-overlay-img" src="" alt="">
+    <div id="meme-overlay-label" class="meme-overlay-label"></div>
+  </div>
+</div>
+
+<!-- ═══ MEME PICKER POPUP ══════════════════════════════════════ -->
+<div id="meme-picker" class="meme-picker" style="display:none;">
+  <div class="meme-picker-tabs" id="meme-picker-tabs"></div>
+  <div class="meme-picker-grid" id="meme-picker-grid"></div>
+</div>
 
 <!-- ═══ GAME TOAST ════════════════════════════════════════════════ -->
 <div id="game-toast" class="game-toast" style="display:none;"></div>
@@ -533,6 +535,7 @@
 <script src="js/dice.js"></script>
 <script src="js/ai.js"></script>
 <script src="js/sounds.js"></script>
+<script src="js/memes.js"></script>
 <!-- Firebase compat SDK (no bundler needed) -->
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
