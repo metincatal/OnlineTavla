@@ -1728,72 +1728,99 @@ class Game {
   // ─── Meme GIF Reactions ─────────────────────────────────────
 
   showMemeReaction(memeUrl, memeLabel) {
-    const overlay = document.getElementById('meme-overlay');
-    const img     = document.getElementById('meme-overlay-img');
-    const label   = document.getElementById('meme-overlay-label');
-    if (!overlay || !img) return;
+    if (!memeUrl) return;
+    const el    = document.getElementById('meme-reaction');
+    const img   = document.getElementById('meme-reaction-img');
+    const label = document.getElementById('meme-reaction-label');
+    if (!el || !img) return;
+
+    // Panel tarafını belirle: kendi paneline yakın göster
+    const side = (this.state && this.state.myColor === 'black') ? 'side-left' : 'side-right';
+    el.className = 'meme-reaction entering ' + side;
 
     img.src = memeUrl;
     if (label) label.textContent = memeLabel || '';
 
-    overlay.style.display = 'flex';
-    // Reset animation
-    const content = overlay.querySelector('.meme-overlay-content');
-    if (content) {
-      content.style.animation = 'none';
-      void content.offsetWidth;
-      content.style.animation = '';
-    }
+    el.style.display = 'flex';
 
-    clearTimeout(this._memeOverlayTimer);
-    this._memeOverlayTimer = setTimeout(() => {
-      overlay.style.display = 'none';
-    }, 3500);
+    clearTimeout(this._memeTimer);
+    this._memeTimer = setTimeout(() => {
+      el.classList.remove('entering');
+      el.classList.add('leaving');
+      setTimeout(() => { el.style.display = 'none'; }, 280);
+    }, 3400);
   }
 
   toggleMemePicker(triggerBtn) {
     const picker = document.getElementById('meme-picker');
     if (!picker) return;
 
-    // Close if already open from same button
+    // Aynı buton → kapat
     if (picker.style.display !== 'none' && picker._trigger === triggerBtn) {
       picker.style.display = 'none';
       picker._trigger = null;
       return;
     }
 
-    // Build picker content if first open
-    this._buildMemePicker();
+    // İlk açılışta içeriği oluştur
+    this._buildMemePicker(picker);
 
-    // Position near button
-    const rect = triggerBtn.getBoundingClientRect();
-    const pickerW = 248;
+    // Önce görünür yap (ölçmek için), sonra konumlandır
+    picker.style.visibility = 'hidden';
+    picker.style.display = 'block';
+
+    const rect    = triggerBtn.getBoundingClientRect();
+    const pickerW = picker.offsetWidth  || 280;
+    const pickerH = picker.offsetHeight || 250;
     let left = rect.right + 6;
     if (left + pickerW > window.innerWidth - 8) left = rect.left - pickerW - 6;
+    const top = Math.min(Math.max(rect.top, 8), window.innerHeight - pickerH - 8);
     picker.style.left = left + 'px';
-    picker.style.top  = Math.min(rect.top, window.innerHeight - 260) + 'px';
+    picker.style.top  = top + 'px';
+    picker.style.visibility = '';
 
-    picker.style.display = 'block';
     picker._trigger = triggerBtn;
   }
 
-  _buildMemePicker() {
+  _buildMemePicker(picker) {
     const tabsEl = document.getElementById('meme-picker-tabs');
     const gridEl = document.getElementById('meme-picker-grid');
     if (!tabsEl || !gridEl || tabsEl._built) return;
     tabsEl._built = true;
 
-    let activeCategory = MEME_CATEGORIES[0].id;
+    let activeCatIdx = 0;
+
+    // Dot indicators (grid'in altına eklenir)
+    const dotsEl = document.createElement('div');
+    dotsEl.className = 'meme-picker-dots';
+    MEME_CATEGORIES.forEach((_, i) => {
+      const d = document.createElement('div');
+      d.className = 'meme-dot' + (i === 0 ? ' active' : '');
+      dotsEl.appendChild(d);
+    });
+    // grid'den sonra ekle (picker içinde kalır)
+    gridEl.insertAdjacentElement('afterend', dotsEl);
+
+    const updateDots = (idx) => {
+      dotsEl.querySelectorAll('.meme-dot').forEach((d, i) => {
+        d.classList.toggle('active', i === idx);
+      });
+    };
 
     const renderGrid = (categoryId) => {
       gridEl.innerHTML = '';
       MEME_LIST.filter(m => m.category === categoryId).forEach(meme => {
         const item = document.createElement('div');
         item.className = 'meme-item';
-        item.innerHTML = `
-          <img src="${meme.url}" alt="${meme.label}" loading="lazy">
-          <div class="meme-item-label">${meme.label}</div>
-        `;
+        const img = document.createElement('img');
+        img.src = meme.url;
+        img.alt = meme.label;
+        img.loading = 'lazy';
+        const lbl = document.createElement('div');
+        lbl.className = 'meme-item-label';
+        lbl.textContent = meme.label;
+        item.appendChild(img);
+        item.appendChild(lbl);
         item.addEventListener('click', () => {
           document.getElementById('meme-picker').style.display = 'none';
           this.sendMemeReaction(meme.url, meme.label);
@@ -1802,35 +1829,47 @@ class Game {
       });
     };
 
+    const switchToIdx = (idx) => {
+      activeCatIdx = (idx + MEME_CATEGORIES.length) % MEME_CATEGORIES.length;
+      tabsEl.querySelectorAll('.meme-tab-btn').forEach((b, i) => {
+        b.classList.toggle('active', i === activeCatIdx);
+      });
+      updateDots(activeCatIdx);
+      renderGrid(MEME_CATEGORIES[activeCatIdx].id);
+    };
+
+    // Sekme butonları (emoji yok, kısa etiket)
     MEME_CATEGORIES.forEach((cat, i) => {
       const btn = document.createElement('button');
       btn.className = 'meme-tab-btn' + (i === 0 ? ' active' : '');
       btn.textContent = cat.label;
-      btn.addEventListener('click', () => {
-        tabsEl.querySelectorAll('.meme-tab-btn').forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
-        activeCategory = cat.id;
-        renderGrid(cat.id);
-      });
+      btn.addEventListener('click', () => switchToIdx(i));
       tabsEl.appendChild(btn);
     });
 
-    renderGrid(activeCategory);
+    // Swipe desteği (mobil)
+    let touchStartX = 0;
+    gridEl.addEventListener('touchstart', (e) => {
+      touchStartX = e.touches[0].clientX;
+    }, { passive: true });
+    gridEl.addEventListener('touchend', (e) => {
+      const dx = e.changedTouches[0].clientX - touchStartX;
+      if (Math.abs(dx) > 45) switchToIdx(activeCatIdx + (dx < 0 ? 1 : -1));
+    }, { passive: true });
+
+    renderGrid(MEME_CATEGORIES[0].id);
   }
 
   sendMemeReaction(memeUrl, memeLabel) {
     if (this._emojiCooldown) return;
     this._emojiCooldown = true;
 
-    // Show locally
     this.showMemeReaction(memeUrl, memeLabel);
 
-    // Send to opponent via Firebase (reuse emoji channel with url as value)
     if (this.state.gameMode === GAME_MODES.ONLINE && this.onlineGame) {
       this.onlineGame.sendEmoji(JSON.stringify({ url: memeUrl, label: memeLabel }));
     }
 
-    // Cooldown: disable GIF buttons for 4s
     document.querySelectorAll('.sp-meme-btn').forEach(btn => btn.classList.add('meme-cooldown'));
     setTimeout(() => {
       this._emojiCooldown = false;
@@ -1838,17 +1877,12 @@ class Game {
     }, 4000);
   }
 
-  // Backward-compat: called by socket.js
+  // socket.js tarafından çağrılır
   showEmojiReaction(raw) {
     try {
       const data = JSON.parse(raw);
-      if (data && data.url) {
-        this.showMemeReaction(data.url, data.label || '');
-        return;
-      }
+      if (data && data.url) { this.showMemeReaction(data.url, data.label || ''); return; }
     } catch (_) {}
-    // Fallback: plain emoji text (old format)
-    this.showMemeReaction('', raw);
   }
 
   showStatusMessage(msg) { /* no-op */ }
