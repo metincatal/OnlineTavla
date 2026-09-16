@@ -9,8 +9,24 @@
   <link rel="manifest" href="manifest.json">
   <title>Tavla</title>
   <link rel="stylesheet" href="css/style.css">
+  <script>
+    // Tema, ilk boyamadan önce uygulanır — açılışta renk sıçramasını önler.
+    (function () {
+      var t = null;
+      try { t = localStorage.getItem('tavla_theme'); } catch (e) {}
+      document.documentElement.setAttribute('data-theme', t || 'ahsap');
+    })();
+  </script>
 </head>
 <body>
+
+<!-- ═══ ARKA PLAN KATMANI ═══════════════════════════════════════ -->
+<div id="app-backdrop" aria-hidden="true">
+  <div class="bd-pattern"></div>
+  <div class="bd-glow"></div>
+  <div class="bd-grain"></div>
+  <div class="bd-vignette"></div>
+</div>
 
 <!-- ═══ PORTRAIT WARNING ════════════════════════════════════════ -->
 <div id="portrait-warning">
@@ -436,6 +452,32 @@
       <button id="settings-close-btn" class="icon-btn">✕</button>
     </div>
     <div class="sm-body">
+      <!-- Theme picker -->
+      <div class="sm-row sm-theme-row">
+        <div class="sm-info">
+          <div class="sm-label">Tema</div>
+          <div class="sm-desc">Oyun masasının arka plan görünümü</div>
+        </div>
+        <div class="theme-options" id="theme-options">
+          <button class="theme-opt" data-theme-id="ahsap">
+            <span class="theme-swatch theme-swatch-ahsap"></span>
+            <span class="theme-opt-label">Ahşap</span>
+          </button>
+          <button class="theme-opt" data-theme-id="gece">
+            <span class="theme-swatch theme-swatch-gece"></span>
+            <span class="theme-opt-label">Gece</span>
+          </button>
+          <button class="theme-opt" data-theme-id="zumrut">
+            <span class="theme-swatch theme-swatch-zumrut"></span>
+            <span class="theme-opt-label">Zümrüt</span>
+          </button>
+          <button class="theme-opt" data-theme-id="acik">
+            <span class="theme-swatch theme-swatch-acik"></span>
+            <span class="theme-opt-label">Açık</span>
+          </button>
+        </div>
+      </div>
+      <div class="sm-divider"></div>
       <!-- Nickname row -->
       <div class="sm-row" id="sm-nickname-row">
         <div class="sm-info">
@@ -453,6 +495,18 @@
         </div>
         <label class="toggle-switch">
           <input type="checkbox" id="toggle-sound">
+          <span class="ts-track"><span class="ts-thumb"></span></span>
+        </label>
+      </div>
+      <div class="sm-divider"></div>
+      <!-- Meme sound toggle -->
+      <div class="sm-row">
+        <div class="sm-info">
+          <div class="sm-label">Meme Sesleri</div>
+          <div class="sm-desc">GIF gönderildiğinde efekt sesi çalsın</div>
+        </div>
+        <label class="toggle-switch">
+          <input type="checkbox" id="toggle-meme-sound">
           <span class="ts-track"><span class="ts-thumb"></span></span>
         </label>
       </div>
