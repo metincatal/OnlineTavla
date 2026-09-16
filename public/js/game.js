@@ -1727,8 +1727,18 @@ class Game {
 
   // ─── Meme GIF Reactions ─────────────────────────────────────
 
-  showMemeReaction(memeUrl, memeLabel) {
+  static get ALLOWED_MEME_HOSTS() {
+    return /^https:\/\/(media[0-9]*\.tenor\.com|media[0-9]*\.giphy\.com|i\.giphy\.com)\//;
+  }
+
+  showMemeReaction(memeUrl, memeLabel, memeSound) {
     if (!memeUrl) return;
+
+    // Meme efekt sesi — genel ses ayarı ve meme sesi ayarı ayrı ayrı kapatılabilir
+    if (memeSound && APP_SETTINGS.memeSound && window.sounds) {
+      sounds.playSfx(memeSound);
+    }
+
     const el    = document.getElementById('meme-reaction');
     const img   = document.getElementById('meme-reaction-img');
     const label = document.getElementById('meme-reaction-label');
@@ -1823,7 +1833,7 @@ class Game {
         item.appendChild(lbl);
         item.addEventListener('click', () => {
           document.getElementById('meme-picker').style.display = 'none';
-          this.sendMemeReaction(meme.url, meme.label);
+          this.sendMemeReaction(meme.url, meme.label, meme.sound);
         });
         gridEl.appendChild(item);
       });
@@ -1860,14 +1870,18 @@ class Game {
     renderGrid(MEME_CATEGORIES[0].id);
   }
 
-  sendMemeReaction(memeUrl, memeLabel) {
+  sendMemeReaction(memeUrl, memeLabel, memeSound) {
     if (this._emojiCooldown) return;
     this._emojiCooldown = true;
 
-    this.showMemeReaction(memeUrl, memeLabel);
+    this.showMemeReaction(memeUrl, memeLabel, memeSound);
 
     if (this.state.gameMode === GAME_MODES.ONLINE && this.onlineGame) {
-      this.onlineGame.sendEmoji(JSON.stringify({ url: memeUrl, label: memeLabel }));
+      // id de gönderilir: karşı taraf meme'i kendi listesinden çözer.
+      const meme = MEME_LIST.find(m => m.url === memeUrl);
+      this.onlineGame.sendEmoji(JSON.stringify({
+        id: meme ? meme.id : null, url: memeUrl, label: memeLabel, sound: memeSound,
+      }));
     }
 
     document.querySelectorAll('.sp-meme-btn').forEach(btn => btn.classList.add('meme-cooldown'));
@@ -1877,11 +1891,27 @@ class Game {
     }, 4000);
   }
 
-  // socket.js tarafından çağrılır
+  // socket.js tarafından çağrılır.
+  // Gelen veri rakipten geldiği için doğrudan güvenilmez: önce kendi
+  // MEME_LIST'imizden çözmeye çalışırız, olmazsa yalnızca bilinen bir
+  // GIF sunucusundan gelen adrese izin veririz.
   showEmojiReaction(raw) {
     try {
       const data = JSON.parse(raw);
-      if (data && data.url) { this.showMemeReaction(data.url, data.label || ''); return; }
+      if (!data) return;
+
+      const known = MEME_LIST.find(m => m.id === data.id) ||
+                    MEME_LIST.find(m => m.url === data.url);
+      if (known) {
+        this.showMemeReaction(known.url, known.label, known.sound);
+        return;
+      }
+
+      // Listede yok (eski istemci ya da güncellenmiş liste) → sadece
+      // Tenor/Giphy adreslerini kabul et, sesi yok say.
+      if (typeof data.url === 'string' && Game.ALLOWED_MEME_HOSTS.test(data.url)) {
+        this.showMemeReaction(data.url, String(data.label || '').slice(0, 40), null);
+      }
     } catch (_) {}
   }
 
@@ -2334,8 +2364,26 @@ document.addEventListener('DOMContentLoaded', () => {
   const toggleSound   = document.getElementById('toggle-sound');
   const toggleVurkac  = document.getElementById('toggle-vurkac');
 
-  toggleSound.checked  = APP_SETTINGS.sound;
-  toggleVurkac.checked = APP_SETTINGS.vurkac;
+  const toggleMemeSound = document.getElementById('toggle-meme-sound');
+
+  toggleSound.checked     = APP_SETTINGS.sound;
+  toggleVurkac.checked    = APP_SETTINGS.vurkac;
+  toggleMemeSound.checked = APP_SETTINGS.memeSound;
+
+  // ─── Tema seçici ────────────────────────────────────────────
+  // Tema <head>'deki inline script ile zaten uygulandı; burada
+  // sadece aktif seçenek işaretlenip tıklama bağlanıyor.
+  const themeOptions = document.querySelectorAll('#theme-options .theme-opt');
+  const markActiveTheme = (id) => {
+    themeOptions.forEach(b => b.classList.toggle('active', b.dataset.themeId === id));
+  };
+  markActiveTheme(APP_SETTINGS.theme);
+  themeOptions.forEach(btn => {
+    btn.addEventListener('click', () => {
+      APP_SETTINGS.theme = btn.dataset.themeId;
+      markActiveTheme(btn.dataset.themeId);
+    });
+  });
 
   // Show nickname in settings
   const smNickVal = document.getElementById('sm-nickname-val');
@@ -2382,6 +2430,10 @@ document.addEventListener('DOMContentLoaded', () => {
   toggleSound.addEventListener('change', () => {
     APP_SETTINGS.sound = toggleSound.checked;
     if (window.sounds) sounds.enabled = toggleSound.checked;
+  });
+
+  toggleMemeSound.addEventListener('change', () => {
+    APP_SETTINGS.memeSound = toggleMemeSound.checked;
   });
 
   toggleVurkac.addEventListener('change', () => {

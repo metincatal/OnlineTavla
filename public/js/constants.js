@@ -65,6 +65,16 @@ const COLORS = {
   textDark:         '#2C1A0E'
 };
 
+// Seçilebilir temalar — style.css'teki html[data-theme="..."] blokları ile eşleşir.
+// color: mobil tarayıcı adres çubuğu rengi (<meta name="theme-color">).
+const THEMES = [
+  { id: 'ahsap',  label: 'Ahşap',  color: '#241710' },
+  { id: 'gece',   label: 'Gece',   color: '#121722' },
+  { id: 'zumrut', label: 'Zümrüt', color: '#0E2119' },
+  { id: 'acik',   label: 'Açık',   color: '#EEE8DC' },
+];
+window.THEMES = THEMES;
+
 // App settings — persisted in localStorage
 const APP_SETTINGS = {
   get vurkac() { return localStorage.getItem('app_vurkac') !== 'false'; },
@@ -77,6 +87,19 @@ const APP_SETTINGS = {
   set nickname(v) {
     localStorage.setItem('tavla_nickname', String(v).slice(0, 16));
   },
+  get theme() {
+    const t = localStorage.getItem('tavla_theme');
+    return THEMES.some(x => x.id === t) ? t : 'ahsap';
+  },
+  set theme(v) {
+    const id = THEMES.some(x => x.id === v) ? v : 'ahsap';
+    localStorage.setItem('tavla_theme', id);
+    document.documentElement.setAttribute('data-theme', id);
+    const meta = document.querySelector('meta[name="theme-color"]');
+    if (meta) meta.setAttribute('content', THEMES.find(x => x.id === id).color);
+  },
+  get memeSound() { return localStorage.getItem('app_meme_sound') !== 'false'; },
+  set memeSound(v) { localStorage.setItem('app_meme_sound', String(v)); },
   get coins() {
     const val = parseInt(localStorage.getItem('tavla_coins'));
     return isNaN(val) ? 1000 : val;
